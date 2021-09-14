@@ -9,7 +9,7 @@ class ConfirmAuthorForm(forms.Form):
     """ Readonly version showing lookup results """
     author_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
-    olid = forms.CharField(max_length=100,
+    author_olid = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
 
 class TitleForm(forms.Form):
@@ -21,8 +21,18 @@ class TitleGivenAuthorForm(forms.Form):
     """ Get a given title from a given author's works """
     author_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
-    olid = forms.CharField(max_length=100,
+    author_olid = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
     # Required=False needed or shows a validation error when rendered
     title = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'autofocus': 'autofocus'}), required=False)
+
+class ConfirmBook(forms.Form):
+    """ Confirm a given book is the desired selection """
+    title = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
+    author_name = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
+    work_olid = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
+    

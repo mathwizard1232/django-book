@@ -1,9 +1,11 @@
+import urllib.parse
+
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 
 from olclient.openlibrary import OpenLibrary
 
-from .forms import AuthorForm, ConfirmAuthorForm, TitleForm, TitleGivenAuthorForm
+from .forms import AuthorForm, ConfirmAuthorForm, TitleForm, TitleGivenAuthorForm, ConfirmBook
 from .models import Author
 
 def get_author(request):
@@ -25,27 +27,41 @@ def confirm_author(request):
         author = ol.Author.search(name)[0]
         olid = author['key'][9:]  # remove "/authors/" prefix
         existing_author = Author.objects.filter(olid=olid).exists()
-        form = ConfirmAuthorForm({'olid' :olid, 'author_name': author['name']})
+        form = ConfirmAuthorForm({'author_olid' :olid, 'author_name': author['name']})
         return render(request, 'confirm-author.html', {'form': form})
     if request.method == 'POST':
-        # They have confirmed it if they are posting back. So then them off to the title lookup
+        # They have confirmed it if they are posting back. So then redirect them off to the title lookup
         name = request.POST['author_name']
-        olid = request.POST['olid']
-        return HttpResponseRedirect(f'/title.html?olid={olid}&author_name={name}')
+        olid = request.POST['author_olid']
+        return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}')
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
     if request.method == 'GET':
-        if 'olid' in request.GET:
-            form = TitleGivenAuthorForm({'olid': request.GET['olid'], 'author_name': request.GET['author_name']})
+        if 'author_olid' in request.GET:
+            form = TitleGivenAuthorForm({'author_olid': request.GET['author_olid'], 'author_name': request.GET['author_name']})
         else:
             form = TitleForm()
         return render(request, 'title.html', {'form': form})
+    if request.method == 'POST':
+        return HttpResponseRedirect(f"/confirm-book.html?title={request.POST['title']}&author_olid={request.POST['author_olid']}&author_name={request.POST['author_name']}")
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
     if request.method == 'GET':
         if 'title' in request.GET:
-            if 'olid' in request.GET:
-                pass  # TODO: got stuck here because found that OpenLibrary lookup is poor
-            # Specifically: 13 results returned for "Stranger in a Strange Land", when should be unique
+            ol = OpenLibrary()
+            title = request.GET['title']
+            author = None  # search just on title if no author chosen
+            title_args = {}
+            if 'author_name' in request.GET:  # use author name as default if given; save in context
+                author=request.GET['author_name']
+                title_args['author_name'] = author
+            if 'author_olid' in request.GET:  # prefer OpenLibrary ID if specified
+                author=request.GET['author_olid']
+                title_args['author_olid'] = author
+            context = {'title_url': "title.html?" + urllib.parse.urlencode(title_args)}
+            result = ol.Work.search(author=author, title=title)
+            # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
+            context['form'] = ConfirmBook({'title': result.title, 'author_name': result.authors[0]['name'], 'work_olid': result.identifiers['olid'][0]})
+            return render(request, 'confirm-book.html', context)

@@ -1,0 +1,9 @@
+<h2>Confirm this is the intended book</h2>
+<form action="/confirm-book.html" method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Confirm" autofocus>
+</form>
+<br>
+<a href={{ title_url }}>Change title</a>
+<a href="/author/">Change author</a>
