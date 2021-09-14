@@ -1,0 +1,7 @@
+<form action="/confirm-author.html" method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Confirm" autofocus>
+</form>
+<br>
+<a href="/author/">Change author</a>

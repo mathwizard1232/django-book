@@ -1,0 +1,8 @@
+<h2>Select a book by entering the title</h2>
+<form action="/confirm-author.html" method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Submit">
+</form>
+<br>
+<a href="/author/">Set or change author</a>
