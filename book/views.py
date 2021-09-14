@@ -1,6 +1,7 @@
 import urllib.parse
 
 from django.http import HttpResponseRedirect
+from django.http.response import JsonResponse
 from django.shortcuts import render
 
 from olclient.openlibrary import OpenLibrary
@@ -65,3 +66,20 @@ def confirm_book(request):
             # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
             context['form'] = ConfirmBook({'title': result.title, 'author_name': result.authors[0]['name'], 'work_olid': result.identifiers['olid'][0]})
             return render(request, 'confirm-book.html', context)
+    
+def author_autocomplete(request):
+    """ Return a list of autocomplete suggestions for authors """
+    # TODO: First attempt to select from authors already in library locally
+    # TODO: Add ability to suggest authors with zero characters
+    # TODO: Sort authors by number of books by them in the local library
+    # Initial version: return the suggestions from OpenLibrary
+    RESULTS_LIMIT = 5
+    if 'q' in request.GET:
+        ol = OpenLibrary()
+        authors = ol.Author.search(request.GET['q'], RESULTS_LIMIT)
+        names = [author['name'] for author in authors]
+        return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
+
+def test_autocomplete(request):
+    """ Test page from the bootstrap autocomplete repo to figure out how to get dropdowns working right """
+    return render(request, 'test-autocomplete.html')

@@ -3,7 +3,12 @@ from django import forms
 class AuthorForm(forms.Form):
     """ Input to get user version of author name """
     author_name = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'autofocus': 'autofocus'}))
+        widget=forms.TextInput(attrs={
+            'autofocus': 'autofocus',
+            'class': 'basicAutoComplete',
+            'data-url': "/author-autocomplete",
+            'autocomplete': 'off'
+        }))
 
 class ConfirmAuthorForm(forms.Form):
     """ Readonly version showing lookup results """

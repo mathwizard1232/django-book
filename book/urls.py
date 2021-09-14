@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import get_author, confirm_author, get_title, confirm_book
+from .views import get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +24,6 @@ urlpatterns = [
     path('confirm-author.html', confirm_author),
     path('title.html', get_title),
     path('confirm-book.html', confirm_book),
+    path('author-autocomplete', author_autocomplete),
+    path('test-autocomplete', test_autocomplete),
 ]
