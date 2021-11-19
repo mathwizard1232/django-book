@@ -30,7 +30,10 @@ class TitleGivenAuthorForm(forms.Form):
         widget=forms.TextInput(attrs={'readonly': True}))
     # Required=False needed or shows a validation error when rendered
     title = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'autofocus': 'autofocus'}), required=False)
+        widget=forms.TextInput(attrs={'autofocus': 'autofocus',
+            'class': 'basicAutoComplete',
+            'data-url': '/title-autocomplete',
+            'autocomplete': 'off'}), required=False)
 
 class ConfirmBook(forms.Form):
     """ Confirm a given book is the desired selection """

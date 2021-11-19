@@ -99,6 +99,15 @@ def author_autocomplete(request):
         names = [author['name'] for author in authors]
         return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
 
+def title_autocomplete(request):
+    """ Returns a list of autocomplete suggestions for the work """
+    # TODO: Take in author and restrict by that as well
+    if 'q' in request.GET:
+        ol = OpenLibrary()
+        result = ol.Work.search(author=None, title=request.GET['q'])
+        names = [result.title]
+        return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
+
 def test_autocomplete(request):
     """ Test page from the bootstrap autocomplete repo to figure out how to get dropdowns working right """
     return render(request, 'test-autocomplete.html')
