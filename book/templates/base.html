@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
 	<head>
@@ -9,10 +10,18 @@
 
         <!-- This is based off the Bootstrap AutoComplete Demo Bootstrap 4 from the Bootstrap Autocomplete github -->
 		<link rel="stylesheet" href="http://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+        <style type="text/css">
+            label {
+                background-color: white;
+            }
+            
+        </style>
 	</head>
-<body>
+<body style="background-image:url('{% static 'book/books.jpg' %}'); background-size:100%; padding-left: 20%; padding-right: 40%">
 
+    <div style="background-image:url('{% static 'book/scroll.jpg' %}'); background-size: 100% 100%; padding:20%">
     {% block content %}{% endblock %}
+    </div>
 
     {% block script %}
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>

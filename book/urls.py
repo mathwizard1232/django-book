@@ -19,6 +19,7 @@ from django.urls import path
 from .views import get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete
 
 urlpatterns = [
+    path('', get_author), # TODO: Do a real index page rather than this starting kludge
     path('admin/', admin.site.urls),
     path('author/', get_author),
     path('confirm-author.html', confirm_author),

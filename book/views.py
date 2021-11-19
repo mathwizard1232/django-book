@@ -107,6 +107,18 @@ def confirm_book(request):
         author = author_olid
     context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
 
+    if DIVIDER in search_title:
+        # This is an autocomplete result already known locally
+        # No need to confirm; go ahead to next step
+        title, olid = search_title.split(DIVIDER)
+        args['title'] = title
+        args['work_olid'] = olid
+        context['form'] = ConfirmBook(args)
+        #return render(request, 'just-entered-book.html', context)
+        # temporary hack for faster entry loop; eventually add a mode to switch where we go
+        # TODO: real switching
+        return HttpResponseRedirect('/author')
+
     # This is the OpenLibrary lookup using author if given (by ID, hopefully) and title
     # It gives the single closest match in its view
     # With some hacking of the client, multiple results could be returned for alternate selections if needed
@@ -114,18 +126,6 @@ def confirm_book(request):
 
     display_title = result.title
     work_olid = result.identifiers['olid'][0]
-
-    # If we don't have a record of this Book yet, record it now.
-    book_qs = Book.objects.filter(olid = work_olid)
-    if not book_qs:
-        assert author_olid  # We shouldn't hit this point without having done a proper Author lookup
-        Book.objects.create(
-            olid = work_olid,
-            author = Author.objects.get(olid=author_olid),
-            title = display_title,
-            search_name = search_title,
-        )
-        logger.info("Added new Book %s (%s) AKA %s", display_title, work_olid, search_title)
 
     # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
     author_name = result.authors[0]['name']
@@ -141,7 +141,17 @@ def confirm_book(request):
         return render(request, 'confirm-book.html', context)
     # Process confirmation and direct to next step
     elif request.method == 'POST':
-        # TODO: Actually save the book here
+        # If we don't have a record of this Book yet, record it now.
+        book_qs = Book.objects.filter(olid = work_olid)
+        if not book_qs:
+            assert author_olid  # We shouldn't hit this point without having done a proper Author lookup
+            Book.objects.create(
+                olid = work_olid,
+                author = Author.objects.get(olid=author_olid),
+                title = display_title,
+                search_name = search_title,
+            )
+            logger.info("Added new Book %s (%s) AKA %s", display_title, work_olid, search_title)
         return render(request, 'just-entered-book.html', context)
 
 def author_autocomplete(request):
@@ -158,6 +168,7 @@ def author_autocomplete(request):
     if author_qs:
         author = author_qs[0]
         logger.info("Successful local lookup of author candidate of %s (%s) on %s", author.primary_name, author.olid, search_str )
+        # We're using the DIVIDER as a kludge to pass these two values together in a single value
         return JsonResponse([author.primary_name + DIVIDER + author.olid for author in author_qs], safe=False)  # safe=False required to allow list rather than dict
 
     # otherwise, do an OpenLibrary API search
@@ -181,7 +192,8 @@ def title_autocomplete(request, oid):
     if book_qs:
         book = book_qs[0]
         logger.info("Successful local lookup of book candidate %s (%s) on %s", book.title, book.olid, title)
-        return JsonResponse([book.title for book in book_qs], safe=False)
+        # We're using the DIVIDER as a kludge to pass these two values together in a single value
+        return JsonResponse([book.title + DIVIDER + book.olid for book in book_qs], safe=False)
 
     # then try to do OpenLibrary API lookup
     ol = OpenLibrary()    
