@@ -15,6 +15,6 @@ Currently no index page. Start at `/author`.
 ## Known issues
 
 * Book isn't actually saved
-* Confirm book returns None / breaks flow
-* No auto-complete on author
 * No index page
+* Lookup of author should give more information on confirmation
+* Lookup of book should give more information on confirmation

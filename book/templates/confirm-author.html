@@ -1,7 +1,12 @@
 <form action="/confirm-author.html" method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <input type="submit" value="Confirm" autofocus>
+    <input type="submit" value="Confirm primary author result" autofocus>
 </form>
 <br>
+<form action="/confirm-author.html" method="post">
+    {% csrf_token %}
+    {{ form2.as_p }}
+    <input type="submit" value="Select alternate suggestion">
+</form>
 <a href="/author/">Change author</a>

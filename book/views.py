@@ -29,15 +29,29 @@ def confirm_author(request):
     if request.method == 'GET':
         name = request.GET['author_name']
         ol = OpenLibrary()
-        author = ol.Author.search(name)[0]
-        olid = author['key'][9:]  # remove "/authors/" prefix
-        existing_author = Author.objects.filter(olid=olid).exists()
-        form = ConfirmAuthorForm({'author_olid' :olid, 'author_name': author['name']})
-        return render(request, 'confirm-author.html', {'form': form})
+        results = ol.Author.search(name, 2)
+        first_author = results[0]
+        second_author = results[1]
+        first_olid = first_author['key'][9:]  # remove "/authors/" prefix
+        second_olid = second_author['key'][9:]
+        existing_author = Author.objects.filter(olid=first_olid).exists()
+        form = ConfirmAuthorForm({'author_olid' :first_olid, 'author_name': first_author['name']})
+        # NOTE: adding this because sometimes even with full name first result is wrong
+        form2 = ConfirmAuthorForm({'author_olid': second_olid, 'author_name': second_author['name']})
+        return render(request, 'confirm-author.html', {'form': form, 'form2': form2})
     if request.method == 'POST':
-        # They have confirmed it if they are posting back. So then redirect them off to the title lookup
+        # This is a confirmed author. Ensure that they have been recorded.
         name = request.POST['author_name']
         olid = request.POST['author_olid']
+
+        author_lookup_qs = Author.objects.filter(olid=olid)
+        if not author_lookup_qs:
+            Author.objects.create(
+                
+            )
+        
+
+        # Finally, redirect them off to the title lookup
         return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}')
 
 def get_title(request):
