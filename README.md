@@ -18,3 +18,7 @@ Currently no index page. Start at `/author`.
 * No index page
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
+
+## Wishlist
+
+* Add a mode for switching between "slow" ("this book has now been entered" with options), or "repeat author" (input set of one author) or "repeat entry" (input series of books) ; this saves a click at the end of entry for on-going sets

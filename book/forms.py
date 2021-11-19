@@ -12,9 +12,14 @@ class AuthorForm(forms.Form):
 
 class ConfirmAuthorForm(forms.Form):
     """ Readonly version showing lookup results """
+    # Display version of author name from OpenLibrary
     author_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
+    # OpenLibrary identifier
     author_olid = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
+    # Name entered by user; alternate lookup
+    search_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
 
 class TitleForm(forms.Form):
