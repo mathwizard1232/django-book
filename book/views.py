@@ -1,7 +1,7 @@
 import urllib.parse
 
 from django.http import HttpResponseRedirect
-from django.http.response import JsonResponse
+from django.http.response import HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from olclient.openlibrary import OpenLibrary
@@ -49,24 +49,43 @@ def get_title(request):
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
+    # Build the link back to the author page
+    params = {}
+    params = request.GET if request.method == 'GET' else params
+    params = request.POST if request.method == 'POST' else params
+    if 'title' not in params:
+        return HttpResponse('Title required')
+    title = params['title']
+    author = None  # search just on title if no author chosen
+    args = {}
+    author_olid = None
+    if 'author_name' in params:  # use author name as default if given; save in context
+        author=params['author_name']
+        args['author_name'] = author
+    if 'author_olid' in params:  # prefer OpenLibrary ID if specified
+        author_olid=params['author_olid']
+        args['author_olid'] = author_olid
+        author = author_olid
+    context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
+
+    # Build display of book
+    ol = OpenLibrary()
+    result = ol.Work.search(author=author, title=title)
+    # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
+    author_name = result.authors[0]['name']
+    args['title'] = result.title
+    args['work_olid'] = result.identifiers['olid'][0]
+    context['form'] = ConfirmBook(args)
+    context['author_name'] = author_name
+
+    # Display confirmation form, or
     if request.method == 'GET':
-        if 'title' in request.GET:
-            ol = OpenLibrary()
-            title = request.GET['title']
-            author = None  # search just on title if no author chosen
-            title_args = {}
-            if 'author_name' in request.GET:  # use author name as default if given; save in context
-                author=request.GET['author_name']
-                title_args['author_name'] = author
-            if 'author_olid' in request.GET:  # prefer OpenLibrary ID if specified
-                author=request.GET['author_olid']
-                title_args['author_olid'] = author
-            context = {'title_url': "title.html?" + urllib.parse.urlencode(title_args)}
-            result = ol.Work.search(author=author, title=title)
-            # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
-            context['form'] = ConfirmBook({'title': result.title, 'author_name': result.authors[0]['name'], 'work_olid': result.identifiers['olid'][0]})
-            return render(request, 'confirm-book.html', context)
-    
+        return render(request, 'confirm-book.html', context)
+    # Process confirmation and direct to next step
+    elif request.method == 'POST':
+        # TODO: Actually save the book here
+        return render(request, 'just-entered-book.html', context)
+
 def author_autocomplete(request):
     """ Return a list of autocomplete suggestions for authors """
     # TODO: First attempt to select from authors already in library locally

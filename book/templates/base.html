@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title></title>
+		
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- This is based off the Bootstrap AutoComplete Demo Bootstrap 4 from the Bootstrap Autocomplete github -->
+		<link rel="stylesheet" href="http://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+	</head>
+<body>
+
+    {% block content %}{% endblock %}
+
+    {% block script %}
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="//stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+        <!-- Note bootstrap requirement seems obvious but wasn't documented; taking this from the index.html example in their repo-->
+        <script src="https://cdn.jsdelivr.net/gh/xcash/bootstrap-autocomplete@v2.3.7/dist/latest/bootstrap-autocomplete.min.js"></script>
+        <!--<script>
+        $(document).ready(function(){
+                $('.basicAutoComplete').autoComplete(
+                    {minLength: 1}
+                );
+                $('.dropdown-menu').css({'top': 'auto', 'left': 'auto'})
+            })
+
+        </script>-->
+        <script>$(document).ready(function(){
+            $('.basicAutoComplete').autoComplete()
+            $('.dropdown-menu').css({'top': 'auto', 'left': 'auto'})
+        })
+        </script>
+
+        <!-- See https://stackoverflow.com/questions/50380769/how-to-create-a-autocomplete-input-field-in-a-form-using-django -->
+    {% endblock %}
+</body>

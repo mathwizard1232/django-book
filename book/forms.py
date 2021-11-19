@@ -38,6 +38,8 @@ class ConfirmBook(forms.Form):
         widget=forms.TextInput(attrs={'readonly': True}))
     author_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
+    author_olid = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
     work_olid = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
     
