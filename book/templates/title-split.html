@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Select a book by entering the title</h2>
+<form action="/title.html" method="post">
+    {% csrf_token %}
+    {{ form_without_title.as_p }}
+    {{ form_with_title.as_p  }}
+    <input type="submit" value="Submit">
+</form>
+<br>
+<a href="/author/">Set or change author</a>
+{% endblock %}

@@ -25,6 +25,6 @@ urlpatterns = [
     path('title.html', get_title),
     path('confirm-book.html', confirm_book),
     path('author-autocomplete', author_autocomplete),
-    path('title-autocomplete', title_autocomplete),
+    path('author/<str:oid>/title-autocomplete', title_autocomplete),
     path('test-autocomplete', test_autocomplete),
 ]

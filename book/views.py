@@ -1,5 +1,7 @@
+import logging
 import urllib.parse
 
+from django import forms
 from django.http import HttpResponseRedirect
 from django.http.response import HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -8,6 +10,8 @@ from olclient.openlibrary import OpenLibrary
 
 from .forms import AuthorForm, ConfirmAuthorForm, TitleForm, TitleGivenAuthorForm, ConfirmBook
 from .models import Author
+
+logger = logging.getLogger(__name__)
 
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
@@ -38,9 +42,18 @@ def confirm_author(request):
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
+    logger.error("get title")
     if request.method == 'GET':
         if 'author_olid' in request.GET:
-            form = TitleGivenAuthorForm({'author_olid': request.GET['author_olid'], 'author_name': request.GET['author_name']})
+            a_olid = request.GET['author_olid']
+            form = TitleGivenAuthorForm({'author_olid': a_olid, 'author_name': request.GET['author_name']})
+            # Attempting to override with runtime value for url as a kludge for how to pass the author OLID
+            data_url = "/author/" + a_olid +  "/title-autocomplete"
+            logger.error("new data url %s", data_url)
+            form.fields['title'].widget=forms.TextInput(attrs={'autofocus': 'autofocus',
+                'class': 'basicAutoComplete',
+                'data-url': data_url,
+                'autocomplete': 'off'})
         else:
             form = TitleForm()
         return render(request, 'title.html', {'form': form})
@@ -99,12 +112,14 @@ def author_autocomplete(request):
         names = [author['name'] for author in authors]
         return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
 
-def title_autocomplete(request):
-    """ Returns a list of autocomplete suggestions for the work """
-    # TODO: Take in author and restrict by that as well
+def title_autocomplete(request, oid):
+    """
+    Returns an autocomplete suggestion for the work
+    Narrows down by author specified by oid
+    """
     if 'q' in request.GET:
         ol = OpenLibrary()
-        result = ol.Work.search(author=None, title=request.GET['q'])
+        result = ol.Work.search(author=oid, title=request.GET['q'])
         names = [result.title]
         return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
 
