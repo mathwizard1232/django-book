@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
 <h2>This book has now been entered.</h2>
 <form>
     {{ form.as_p }}
@@ -8,3 +10,4 @@
 <script>
     document.getElementById("next").focus();
 </script>
+{% endblock %}

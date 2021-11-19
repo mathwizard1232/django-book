@@ -8,7 +8,7 @@ from django.shortcuts import render
 
 from olclient.openlibrary import OpenLibrary
 
-from .forms import AuthorForm, ConfirmAuthorForm, TitleForm, TitleGivenAuthorForm, ConfirmBook
+from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook
 from .models import Author, Book
 
 logger = logging.getLogger(__name__)
@@ -42,11 +42,18 @@ def confirm_author(request):
         first_author = results[0]
         second_author = results[1]
         first_olid = first_author['key'][9:]  # remove "/authors/" prefix
+        bio = ol.Author.get(first_olid).bio
         second_olid = second_author['key'][9:]
-        existing_author = Author.objects.filter(olid=first_olid).exists()
+        second_bio = ol.Author.get(second_olid).bio
+        
         form = ConfirmAuthorForm({'author_olid' :first_olid, 'author_name': first_author['name'], 'search_name': name})
+
+        if bio:
+            form = ConfirmAuthorFormWithBio({'author_olid' :first_olid, 'author_name': first_author['name'], 'search_name': name, 'bio': bio})
         # NOTE: adding this because sometimes even with full name first result is wrong
         form2 = ConfirmAuthorForm({'author_olid': second_olid, 'author_name': second_author['name'], 'search_name': name})
+        if second_bio:
+            form2 = ConfirmAuthorFormWithBio({'author_olid': second_olid, 'author_name': second_author['name'], 'search_name': name, 'bio': second_bio})
         return render(request, 'confirm-author.html', {'form': form, 'form2': form2})
     if request.method == 'POST':
         # This is a confirmed author. Ensure that they have been recorded.
@@ -126,6 +133,8 @@ def confirm_book(request):
 
     display_title = result.title
     work_olid = result.identifiers['olid'][0]
+    publish_year = result.publish_date
+    publisher = result.publisher
 
     # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
     author_name = result.authors[0]['name']
@@ -133,6 +142,8 @@ def confirm_book(request):
     # This block is setting up the context and form to display the book
     args['title'] = display_title
     args['work_olid'] = work_olid
+    args['publisher'] = publisher
+    args['publish_year'] = publish_year
     context['form'] = ConfirmBook(args)
     context['author_name'] = author_name
 
@@ -188,7 +199,8 @@ def title_autocomplete(request, oid):
 
     # first attempt local lookup
     title=request.GET['q']
-    book_qs = Book.objects.filter(search_name__contains=title)
+    author = Author.objects.get(olid = oid)
+    book_qs = Book.objects.filter(author=author, search_name__contains=title)
     if book_qs:
         book = book_qs[0]
         logger.info("Successful local lookup of book candidate %s (%s) on %s", book.title, book.olid, title)

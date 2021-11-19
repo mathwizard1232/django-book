@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
 <h2>Confirm this is the intended book</h2>
 <form action="/confirm-book.html" method="post">
     {% csrf_token %}
@@ -7,3 +9,4 @@
 <br>
 <a href={{ title_url }}>Change title</a>
 <a href="/author/">Change author</a>
+{% endblock %}

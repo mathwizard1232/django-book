@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+    <h2>Author selection</h2> 
+    <p>Please type in the name of the author of the book.</p>
+    <p>Once you have typed three characters, suggestions may appear.</p>
     <form action="/author/" method="post">
         {% csrf_token %}
         {{ form }}

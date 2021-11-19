@@ -22,6 +22,10 @@ class ConfirmAuthorForm(forms.Form):
     search_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
 
+class ConfirmAuthorFormWithBio(ConfirmAuthorForm):
+    """Additional field for bio if available"""
+    bio = forms.CharField(widget=forms.Textarea(attrs={'readonly': True}), required=False)
+
 class TitleForm(forms.Form):
     """ Input to get user version of a title """
     title = forms.CharField(max_length=100,
@@ -46,6 +50,9 @@ class ConfirmBook(forms.Form):
         widget=forms.TextInput(attrs={'readonly': True}))
     author_name = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
+    publisher = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'readonly': True}))
+    publish_year = forms.IntegerField(widget=forms.TextInput(attrs={'readonly': True}))
     author_olid = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
     work_olid = forms.CharField(max_length=100,
