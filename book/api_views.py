@@ -1,8 +1,13 @@
 import json
+import logging
+import requests
 from typing import List, Dict
 from django.http import JsonResponse
 
 from .models import Author, Book
+
+logger = logging.getLogger(__name__)
+
 
 def get_authors() -> List:
     authors = Author.objects.all()
@@ -68,3 +73,16 @@ def api_root(request):
         return JsonResponse(get_library())
     if request.method == "POST":
         return JsonResponse(add_to_library(json.loads(request.body)))
+
+
+def sync(remote):
+    """
+    POST local contents to remote, then GET on remote and add
+    After, each will have a full set.
+    """
+    post_response = requests.post(remote, json=get_library())
+    logger.info("Response to sync POST: " + post_response.content.decode('utf-8'))
+    get_response = requests.get(remote)
+    add_response = add_to_library(json.loads(get_response.content.decode('utf-8')))
+    logger.info("Added from " + remote + ": " + json.dumps(add_response))
+
