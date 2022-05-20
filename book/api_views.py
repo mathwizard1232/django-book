@@ -24,6 +24,7 @@ def get_books() -> List:
         )
     return results
 
+
 def get_library() -> Dict:
     """Return a JSON view of the library"""
     results = {}
@@ -32,9 +33,33 @@ def get_library() -> Dict:
     return results
 
 
+def add_authors(authors):
+    """Add entry for authors whose olid is not already present. No updates."""
+    add_count = 0
+    for author in authors:
+        if not Author.objects.filter(olid=author["olid"]):
+            Author.objects.create(olid=author["olid"], primary_name=author["primary_name"], search_name=author["search_name"])
+            add_count += 1
+    return add_count
+
+
+def add_books(books):
+    """Add entry for books whose olid is not already present. No updates."""
+    add_count = 0
+    for book in books:
+        if not Book.objects.filter(olid=book["olid"]):
+            author = Author.objects.get(olid=book["author_olid"])
+            Book.objects.create(author=author, olid=book["olid"], title=book["title"], search_name=book["search_name"])
+            add_count += 1
+    return add_count
+
 def add_to_library(new_data):
     """Add in any authors or books not previously present"""
-    raise NotImplementedException()
+    if "authors" in new_data:
+        authors_added = add_authors(new_data["authors"])
+    if "books" in new_data:
+        books_added = add_books(new_data["books"])
+    return {"authors_added": authors_added, "books_added": books_added}
 
 
 def api_root(request):
