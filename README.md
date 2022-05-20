@@ -16,9 +16,11 @@ Licenses under https://creativecommons.org/licenses/by/2.0/ with attribution.
 
 - Install Django; `pip install django`
 
+- Apply migrations: `python3 manage.py migrate`
+
 ## Running
 
-`./manage.py runserver`
+`python3 manage.py runserver`
 
 Index page just directs to `/author`, which is author selection page and starts process.
 
@@ -36,8 +38,12 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * No index page
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
+* Change author confirmation page when there's no alternate to not just have empty alternate box
 
 ## Wishlist
 
 * Add a mode for switching between "slow" ("this book has now been entered" with options), or "repeat author" (input set of one author) or "repeat entry" (input series of books) ; this saves a click at the end of entry for on-going sets (currently hardcoded to fast after duplicate titles)
 * Remote backup and restore capabilities
+* Custom entry for books not found
+* Search by title for collections with many authors (e.g. sci fi short story compilations)
+* Search by title for author to fallback to search by title when book not found by author?
