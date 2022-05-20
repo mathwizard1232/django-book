@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.urls import path
 
 from .views import get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete
+from .api_views import api_root
 
 urlpatterns = [
     path('', get_author), # TODO: Do a real index page rather than this starting kludge
@@ -28,4 +29,5 @@ urlpatterns = [
     path('author-autocomplete', author_autocomplete),
     path('author/<str:oid>/title-autocomplete', title_autocomplete),
     path('test-autocomplete', test_autocomplete),
+    path('api/', api_root),
 ]
