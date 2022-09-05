@@ -221,3 +221,10 @@ def title_autocomplete(request, oid):
 def test_autocomplete(request):
     """ Test page from the bootstrap autocomplete repo to figure out how to get dropdowns working right """
     return render(request, 'test-autocomplete.html')
+
+def list(request):
+    """ Display summary of what's in library, (or search results eventually) """
+    authors = Author.objects.all()
+    books = Book.objects.all()
+    context={'authors': authors, 'books': books}
+    return render(request, 'list.html', context)
