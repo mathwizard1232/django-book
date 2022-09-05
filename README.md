@@ -47,3 +47,5 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Custom entry for books not found
 * Search by title for collections with many authors (e.g. sci fi short story compilations)
 * Search by title for author to fallback to search by title when book not found by author?
+* Listing page / search page
+
