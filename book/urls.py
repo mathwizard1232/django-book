@@ -16,11 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list
+from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list
 from .api_views import api_root
 
 urlpatterns = [
-    path('', get_author), # TODO: Do a real index page rather than this starting kludge
+    path('', index),
     path('admin/', admin.site.urls),
     path('author/', get_author),
     path('confirm-author.html', confirm_author),

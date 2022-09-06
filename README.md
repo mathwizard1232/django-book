@@ -48,4 +48,8 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Search by title for collections with many authors (e.g. sci fi short story compilations)
 * Search by title for author to fallback to search by title when book not found by author?
 * Listing page / search page
-
+* Add entry by ISBN
+  * And by SBN
+* Add better disambiguation when e.g. wrong edition of book? (though in theory current "Book" just content id)
+* Better handling of no result in confirm book
+* Split out base and autocomplete-base templates

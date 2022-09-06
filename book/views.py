@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 DIVIDER = " ::: "
 
+def index(request):
+    return render(request, 'index.html')
+
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
     if request.method == 'POST':
@@ -92,7 +95,12 @@ def get_title(request):
             form = TitleForm()
         return render(request, 'title.html', {'form': form})
     if request.method == 'POST':
-        return HttpResponseRedirect(f"/confirm-book.html?title={request.POST['title']}&author_olid={request.POST['author_olid']}&author_name={request.POST['author_name']}")
+        post_url = f"/confirm-book.html?title={request.POST['title']}"
+        if 'author_olid' in request.POST:
+            post_url += f"&author_olid={request.POST['author_olid']}"
+        if 'author_name' in request.POST:
+            post_url += f"&author_name={request.POST['author_name']}"
+        return HttpResponseRedirect(post_url)
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
@@ -133,6 +141,13 @@ def confirm_book(request):
     # With some hacking of the client, multiple results could be returned for alternate selections if needed
     result = ol.Work.search(author=author, title=search_title)
 
+    if not result:
+        # try searching just for title then, maybe wrong author selection
+        result = ol.Work.search(title=search_title)
+        if not result:
+            # TODO: better handling
+            raise Exception("no result")
+        
     display_title = result.title
     work_olid = result.identifiers['olid'][0]
     publish_year = result.publish_date
