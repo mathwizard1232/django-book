@@ -1,3 +1,7 @@
+Current status: Up next: Do 1.2, do a "quick entry", where a default Copy is made once a Work is identified, as first modification of existing flow. Then do a "detailed entry" support for distinguishing multiple copies (determine Edition / try to distinguish Copy). How to do this with
+a minimal Copy from the first entry? The second time a book is encountered, it'll be filled out
+and then marked that it's been seen a second time, and then the third+ times, we'll get more information each time to either confirm it's the same copy we're seeing again or identify duplicates (if we have a known location (book is shelved) and we encounter the same Work, then we'll automatically know it's a second+ Copy, but if we have any unshelved copies then it may be that copy, so simply get more information / confirm existing matches.)
+
 # LibraCents MVP Plan
 
 ## Phase 1: Core Entity Migration
