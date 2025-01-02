@@ -62,8 +62,7 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Remote backup and restore capabilities
 * Custom entry for books not found
 * Search by title for collections with many authors (e.g. sci fi short story compilations)
-* Search by title for author to fallback to search by title when book not found by author?
-* Listing page / search page
+* Search page
 * Add entry by ISBN
   * And by SBN
 * Add better disambiguation when e.g. wrong edition of book? (though in theory current "Book" just content id)
