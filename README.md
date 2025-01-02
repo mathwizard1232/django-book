@@ -52,10 +52,9 @@ In both author and title selection, any local results are used first. When start
 not previously seen, the OpenLibrary API is called for lookup and confirmation screens are used for the new entries.
 
 ## Known Issues
-* No index page
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
-* Change author confirmation page when there's no alternate to not just have empty alternate box
+* Visuals inconsistent (UI text with background color set or not)
 
 ## Wishlist
 

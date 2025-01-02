@@ -5,11 +5,15 @@
     {{ form.as_p }}
     <input type="submit" value="Confirm primary author result" autofocus>
 </form>
+
+{% if form2 %}
 <br>
 <form action="/confirm-author.html" method="post">
     {% csrf_token %}
     {{ form2.as_p }}
     <input type="submit" value="Select alternate suggestion">
 </form>
+{% endif %}
+
 <a href="/author/">Change author</a>
 {% endblock %}
