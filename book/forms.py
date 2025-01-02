@@ -1,5 +1,5 @@
 from django import forms
-
+from book.models.location import Location, Room, Bookcase
 class AuthorForm(forms.Form):
     """ Input to get user version of author name """
     author_name = forms.CharField(max_length=100,
@@ -57,4 +57,74 @@ class ConfirmBook(forms.Form):
         widget=forms.TextInput(attrs={'readonly': True}))
     work_olid = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'readonly': True}))
+    
+class LocationForm(forms.Form):
+    name = forms.CharField(max_length=100,
+        widget=forms.TextInput(attrs={'autofocus': 'autofocus'}))
+    type = forms.ChoiceField(choices=Location.TYPE_CHOICES)
+    address = forms.CharField(required=False, 
+        widget=forms.Textarea(attrs={'rows': 3}))
+    notes = forms.CharField(required=False,
+        widget=forms.Textarea(attrs={'rows': 3}))
+    
+class LocationEntityForm(forms.Form):
+    ENTITY_TYPES = [
+        ('LOCATION', 'Building/Storage Space'),
+        ('ROOM', 'Room'),
+        ('BOOKCASE', 'Bookcase'),
+        ('SHELF', 'Shelf'),
+        ('BOX', 'Box'),
+        ('GROUP', 'Book Group'),
+    ]
+    
+    entity_type = forms.ChoiceField(
+        choices=ENTITY_TYPES,
+        label="What type of location are you adding?"
+    )
+    
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={'autofocus': 'autofocus'})
+    )
+    
+    # Location-specific fields
+    type = forms.ChoiceField(
+        choices=Location.TYPE_CHOICES,
+        required=False
+    )
+    address = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3})
+    )
+    
+    # Room-specific fields
+    room_type = forms.ChoiceField(
+        choices=Room.TYPE_CHOICES,
+        required=False
+    )
+    floor = forms.IntegerField(
+        required=False,
+        initial=1
+    )
+    parent_location = forms.ModelChoiceField(
+        queryset=Location.objects.all(),
+        required=False,
+        label="In which building?"
+    )
+    
+    # Bookcase-specific fields
+    shelf_count = forms.IntegerField(
+        required=False,
+        min_value=1
+    )
+    parent_room = forms.ModelChoiceField(
+        queryset=Room.objects.all(),
+        required=False,
+        label="In which room?"
+    )
+    
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3})
+    )
     

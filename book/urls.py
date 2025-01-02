@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list
+from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations
 from .api_views import api_root
 
 urlpatterns = [
@@ -31,4 +31,5 @@ urlpatterns = [
     path('test-autocomplete', test_autocomplete),
     path('api/', api_root),
     path('list/', list),
+    path('locations/', manage_locations, name='manage_locations'),
 ]

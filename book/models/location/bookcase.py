@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Bookcase(models.Model):
     """
@@ -42,3 +44,17 @@ class Bookcase(models.Model):
         if self.location:
             return self.location
         return self.room.location if self.room else None
+
+@receiver(post_save, sender=Bookcase)
+def create_shelves(sender, instance, created, **kwargs):
+    """
+    Creates shelf objects for each position in a new bookcase.
+    Only runs on initial creation, not updates.
+    """
+    if created:  # only run on new bookcase creation
+        from .shelf import Shelf
+        for position in range(1, instance.shelf_count + 1):
+            Shelf.objects.create(
+                bookcase=instance,
+                position=position
+            )

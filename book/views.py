@@ -8,8 +8,8 @@ from django.shortcuts import render
 
 from olclient.openlibrary import OpenLibrary
 
-from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook
-from .models import Author, Book
+from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook, LocationForm, LocationEntityForm
+from .models import Author, Book, Location, Room, Bookcase, Shelf
 
 logger = logging.getLogger(__name__)
 
@@ -243,3 +243,52 @@ def list(request):
     books = Book.objects.all()
     context={'authors': authors, 'books': books}
     return render(request, 'list.html', context)
+
+def manage_locations(request):
+    if request.method == 'POST':
+        form = LocationEntityForm(request.POST)
+        if form.is_valid():
+            entity_type = form.cleaned_data['entity_type']
+            name = form.cleaned_data['name']
+            notes = form.cleaned_data.get('notes', '')
+
+            if entity_type == 'LOCATION':
+                Location.objects.create(
+                    name=name,
+                    type=form.cleaned_data['type'],
+                    address=form.cleaned_data.get('address', ''),
+                    notes=notes
+                )
+            elif entity_type == 'ROOM':
+                Room.objects.create(
+                    name=name,
+                    type=form.cleaned_data['room_type'],
+                    floor=form.cleaned_data.get('floor', 1),
+                    location=form.cleaned_data['parent_location'],
+                    notes=notes
+                )
+            elif entity_type == 'BOOKCASE':
+                Bookcase.objects.create(
+                    name=name,
+                    shelf_count=form.cleaned_data['shelf_count'],
+                    room=form.cleaned_data.get('parent_room'),
+                    location=form.cleaned_data.get('parent_location'),
+                    notes=notes
+                )
+            return HttpResponseRedirect('/locations/')
+    else:
+        form = LocationEntityForm()
+    
+    # Get all location entities for display
+    locations = Location.objects.all()
+    rooms = Room.objects.select_related('location').all()
+    bookcases = Bookcase.objects.select_related('room', 'location').all()
+    
+    context = {
+        'locations': locations,
+        'rooms': rooms,
+        'bookcases': bookcases,
+        'shelves': Shelf.objects.all().order_by('bookcase', 'position'),  # Make sure shelves are ordered
+        'form': form,
+    }
+    return render(request, 'locations.html', context)

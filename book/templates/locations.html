@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Manage Locations</h2>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h3>Add New Location</h3>
+        <form method="post" id="locationForm">
+            {% csrf_token %}
+            
+            {{ form.entity_type.label_tag }}
+            {{ form.entity_type }}
+            
+            <div class="mt-3">
+                {{ form.name.label_tag }}
+                {{ form.name }}
+            </div>
+            
+            <div id="location-fields" class="mt-3" style="display: none;">
+                {{ form.type.label_tag }}
+                {{ form.type }}
+                {{ form.address.label_tag }}
+                {{ form.address }}
+            </div>
+            
+            <div id="room-fields" class="mt-3" style="display: none;">
+                {{ form.room_type.label_tag }}
+                {{ form.room_type }}
+                {{ form.floor.label_tag }}
+                {{ form.floor }}
+                {{ form.parent_location.label_tag }}
+                {{ form.parent_location }}
+            </div>
+            
+            <div id="bookcase-fields" class="mt-3" style="display: none;">
+                {{ form.shelf_count.label_tag }}
+                {{ form.shelf_count }}
+                {{ form.parent_room.label_tag }}
+                {{ form.parent_room }}
+            </div>
+            
+            <div id="shelf-fields" class="mt-3" style="display: none;">
+                {{ form.position.label_tag }}
+                {{ form.position }}
+                {{ form.parent_bookcase.label_tag }}
+                {{ form.parent_bookcase }}
+            </div>
+            
+            <div class="mt-3">
+                {{ form.notes.label_tag }}
+                {{ form.notes }}
+            </div>
+            
+            <button type="submit" class="btn btn-primary mt-3">Add Location</button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Current Locations</h3>
+        {% if locations %}
+            <ul class="list-group">
+            {% for location in locations %}
+                <li class="list-group-item">
+                    <h4>{{ location.name }}</h4>
+                    <p>Type: {{ location.get_type_display }}</p>
+                    {% if location.address %}
+                        <p>Address: {{ location.address }}</p>
+                    {% endif %}
+                    
+                    {% for room in rooms %}
+                        {% if room.location_id == location.id %}
+                            {% if forloop.first %}
+                                <div class="ms-4">
+                                    <h5>Rooms:</h5>
+                                    <ul class="list-group">
+                            {% endif %}
+                            
+                            <li class="list-group-item">
+                                <p>{{ room.name }} ({{ room.get_type_display }})</p>
+                                
+                                {% for bookcase in bookcases %}
+                                    {% if bookcase.room_id == room.id %}
+                                        {% if forloop.first %}
+                                            <div class="ms-4">
+                                                <h6>Bookcases:</h6>
+                                                <ul class="list-group">
+                                        {% endif %}
+                                        
+                                        <li class="list-group-item">
+                                            {{ bookcase.name }} ({{ bookcase.shelf_count }} shelves)
+                                            
+                                            {% for shelf in shelves %}
+                                                {% if shelf.bookcase_id == bookcase.id %}
+                                                    {% if forloop.first %}
+                                                        <div class="ms-4">
+                                                            <h6>Shelves:</h6>
+                                                            <ul class="list-group">
+                                                    {% endif %}
+                                                    
+                                                    <li class="list-group-item">
+                                                        Shelf {{ shelf.position }}
+                                                        {% if shelf.notes %}
+                                                            <br><small>{{ shelf.notes }}</small>
+                                                        {% endif %}
+                                                    </li>
+                                                    
+                                                    {% if forloop.last %}
+                                                            </ul>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </li>
+                                        
+                                        {% if forloop.last %}
+                                                </ul>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </li>
+                            
+                            {% if forloop.last %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No locations defined yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="addShelfModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Shelf</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" id="shelfForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="entity_type" value="SHELF">
+                    <input type="hidden" name="parent_bookcase" id="shelf_parent_bookcase">
+                    
+                    <div class="mb-3">
+                        <label for="shelf_position" class="form-label">Position</label>
+                        <input type="number" class="form-control" id="shelf_position" 
+                               name="position" min="1" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="shelf_notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="shelf_notes" name="notes"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitShelfForm()">Add Shelf</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAddShelfForm(bookcaseId) {
+    document.getElementById('shelf_parent_bookcase').value = bookcaseId;
+    new bootstrap.Modal(document.getElementById('addShelfModal')).show();
+}
+
+function submitShelfForm() {
+    document.getElementById('shelfForm').submit();
+}
+
+document.getElementById('id_entity_type').addEventListener('change', function() {
+    const entityType = this.value;
+    document.getElementById('location-fields').style.display = 
+        entityType === 'LOCATION' ? 'block' : 'none';
+    document.getElementById('room-fields').style.display = 
+        entityType === 'ROOM' ? 'block' : 'none';
+    document.getElementById('bookcase-fields').style.display = 
+        entityType === 'BOOKCASE' ? 'block' : 'none';
+    document.getElementById('shelf-fields').style.display = 
+        entityType === 'SHELF' ? 'block' : 'none';
+});
+</script>
+{% endblock %} 
