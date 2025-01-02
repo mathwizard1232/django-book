@@ -5,11 +5,12 @@ from django import forms
 from django.http import HttpResponseRedirect
 from django.http.response import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 
 from olclient.openlibrary import OpenLibrary
 
 from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook, LocationForm, LocationEntityForm
-from .models import Author, Book, Location, Room, Bookcase, Shelf
+from .models import Author, Book, Location, Room, Bookcase, Shelf, Work, Edition, Copy
 
 logger = logging.getLogger(__name__)
 
@@ -180,17 +181,39 @@ def confirm_book(request):
         return render(request, 'confirm-book.html', context)
     # Process confirmation and direct to next step
     elif request.method == 'POST':
-        # If we don't have a record of this Book yet, record it now.
-        book_qs = Book.objects.filter(olid = work_olid)
-        if not book_qs:
-            assert author_olid  # We shouldn't hit this point without having done a proper Author lookup
-            Book.objects.create(
-                olid = work_olid,
-                author = Author.objects.get(olid=author_olid),
-                title = display_title,
-                search_name = search_title,
+        # If we don't have a record of this Work yet, record it now.
+        work_qs = Work.objects.filter(olid=work_olid)
+        if not work_qs:
+            work = Work.objects.create(
+                olid=work_olid,
+                title=display_title,
+                search_name=search_title,
+                type='NOVEL',  # Default type, could be made configurable
             )
-            logger.info("Added new Book %s (%s) AKA %s", display_title, work_olid, search_title)
+            work.authors.add(Author.objects.get(olid=author_olid))
+            logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
+        else:
+            work = work_qs[0]
+
+        # Create a default Edition
+        edition = Edition.objects.create(
+            work=work,  # Now using Work instead of Book
+            publisher=publisher if publisher else "Unknown",
+            format="PAPERBACK",   # Default format
+        )
+
+        # Create an unshelved Copy
+        copy = Copy.objects.create(
+            edition=edition,
+            condition="GOOD",  # Default condition
+        )
+
+        # Update context to include the copy for the template
+        context['copy'] = copy
+
+        # Add locations to context for the template
+        context['locations'] = Location.objects.all()
+
         return render(request, 'just-entered-book.html', context)
 
 def author_autocomplete(request):
@@ -249,10 +272,11 @@ def test_autocomplete(request):
     return render(request, 'test-autocomplete.html')
 
 def list(request):
-    """ Display summary of what's in library, (or search results eventually) """
-    authors = Author.objects.all()
-    books = Book.objects.all()
-    context={'authors': authors, 'books': books}
+    """ Display summary of what's in library """
+    # Get authors who have at least one work
+    authors_with_works = Author.objects.filter(work__isnull=False).distinct()
+    works = Work.objects.all().prefetch_related('authors')
+    context = {'authors': authors_with_works, 'works': works}
     return render(request, 'list.html', context)
 
 def manage_locations(request):
@@ -303,3 +327,42 @@ def manage_locations(request):
         'form': form,
     }
     return render(request, 'locations.html', context)
+
+def get_rooms(request, location_id):
+    rooms = Room.objects.filter(location_id=location_id)
+    return JsonResponse([{'id': r.id, 'name': r.name} for r in rooms], safe=False)
+
+def get_bookcases(request, room_id):
+    bookcases = Bookcase.objects.filter(room_id=room_id)
+    return JsonResponse([{'id': b.id, 'name': b.name} for b in bookcases], safe=False)
+
+def get_shelves(request, bookcase_id):
+    shelves = Shelf.objects.filter(bookcase_id=bookcase_id)
+    return JsonResponse([{'id': s.id, 'name': f'Shelf {s.position}'} for s in shelves], safe=False)
+
+def assign_location(request, copy_id):
+    if request.method == 'POST':
+        copy = Copy.objects.get(id=copy_id)
+        
+        # Clear existing location data
+        copy.location = None
+        copy.room = None
+        copy.bookcase = None
+        copy.shelf = None
+        
+        # Assign new location data
+        if request.POST.get('location'):
+            copy.location_id = request.POST['location']
+        if request.POST.get('room'):
+            copy.room_id = request.POST['room']
+        if request.POST.get('bookcase'):
+            copy.bookcase_id = request.POST['bookcase']
+        if request.POST.get('shelf'):
+            copy.shelf_id = request.POST['shelf']
+        
+        copy.save()
+        
+        # Redirect to success page or back to the form
+        return HttpResponseRedirect(reverse('index'))
+    
+    return HttpResponseBadRequest("POST request required")

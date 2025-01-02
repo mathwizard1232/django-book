@@ -1,13 +1,113 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>This book has now been entered.</h2>
-<form>
-    {{ form.as_p }}
-</form>
-<br>
-<a tabindex="2" href={{ title_url }}>Add another book by {{ author_name }} </a><br>
-<a tabindex="1" href="/author/" id="next">Add a book by a different author</a>
+
+<div class="row">
+    <div class="col-md-8">
+        <h3>Assign Location (Optional)</h3>
+        <form method="post" action="{% url 'assign_location' copy.id %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="location" class="form-label">Building/Location</label>
+                <select class="form-select" id="location" name="location">
+                    <option value="">Select location...</option>
+                    {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="room" class="form-label">Room</label>
+                <select class="form-select" id="room" name="room" disabled>
+                    <option value="">Select room...</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="bookcase" class="form-label">Bookcase</label>
+                <select class="form-select" id="bookcase" name="bookcase" disabled>
+                    <option value="">Select bookcase...</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="shelf" class="form-label">Shelf</label>
+                <select class="form-select" id="shelf" name="shelf" disabled>
+                    <option value="">Select shelf...</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Assign Location</button>
+        </form>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a tabindex="2" href={{ title_url }}>Add another book by {{ author_name }}</a><br>
+    <a tabindex="1" href="/author/" id="next">Add a book by a different author</a>
+</div>
+
 <script>
-    document.getElementById("next").focus();
+    // Add dynamic loading of rooms/bookcases/shelves based on selection
+    document.getElementById('location').addEventListener('change', function() {
+        loadRooms(this.value);
+    });
+    
+    document.getElementById('room').addEventListener('change', function() {
+        loadBookcases(this.value);
+    });
+    
+    document.getElementById('bookcase').addEventListener('change', function() {
+        loadShelves(this.value);
+    });
+    
+    function loadRooms(locationId) {
+        if (!locationId) {
+            disableSelect('room');
+            return;
+        }
+        fetch(`/api/rooms/${locationId}`)
+            .then(response => response.json())
+            .then(rooms => updateSelect('room', rooms));
+    }
+    
+    function loadBookcases(roomId) {
+        if (!roomId) {
+            disableSelect('bookcase');
+            return;
+        }
+        fetch(`/api/bookcases/${roomId}`)
+            .then(response => response.json())
+            .then(bookcases => updateSelect('bookcase', bookcases));
+    }
+    
+    function loadShelves(bookcaseId) {
+        if (!bookcaseId) {
+            disableSelect('shelf');
+            return;
+        }
+        fetch(`/api/shelves/${bookcaseId}`)
+            .then(response => response.json())
+            .then(shelves => updateSelect('shelf', shelves));
+    }
+    
+    function updateSelect(elementId, options) {
+        const select = document.getElementById(elementId);
+        select.disabled = false;
+        select.innerHTML = '<option value="">Select...</option>';
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.id;
+            option.textContent = opt.name;
+            select.appendChild(option);
+        });
+    }
+    
+    function disableSelect(elementId) {
+        const select = document.getElementById(elementId);
+        select.disabled = true;
+        select.innerHTML = '<option value="">Select...</option>';
+    }
 </script>
 {% endblock %}

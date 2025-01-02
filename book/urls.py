@@ -16,11 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations
+from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations, get_rooms, get_bookcases, get_shelves, assign_location
 from .api_views import api_root
 
 urlpatterns = [
-    path('', index),
+    path('', index, name='index'),
     path('admin/', admin.site.urls),
     path('author/', get_author),
     path('confirm-author.html', confirm_author),
@@ -32,4 +32,8 @@ urlpatterns = [
     path('api/', api_root),
     path('list/', list),
     path('locations/', manage_locations, name='manage_locations'),
+    path('api/rooms/<int:location_id>/', get_rooms, name='get_rooms'),
+    path('api/bookcases/<int:room_id>/', get_bookcases, name='get_bookcases'),
+    path('api/shelves/<int:bookcase_id>/', get_shelves, name='get_shelves'),
+    path('copy/<int:copy_id>/assign-location/', assign_location, name='assign_location'),
 ]

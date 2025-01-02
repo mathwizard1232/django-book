@@ -6,10 +6,10 @@
   <li>{{ author.primary_name }}</li>
 {% endfor %}
 </ul>
-<h2>Books:</h2>
+<h2>Works:</h2>
 <ul>
-{% for book in books %}
-  <li>{{ book.title }}</li>
+{% for work in works %}
+  <li>{{ work.title }} by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>
 {% endfor %}
 </ul>
 {% endblock %}
