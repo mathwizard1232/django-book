@@ -142,11 +142,22 @@ def confirm_book(request):
     result = ol.Work.search(author=author, title=search_title)
 
     if not result:
-        # try searching just for title then, maybe wrong author selection
-        result = ol.Work.search(title=search_title)
+        # try searching by author name if we have an author_olid
+        if author_olid:
+            try:
+                ol_author = ol.Author.get(author_olid)
+                result = ol.Work.search(author=ol_author.name, title=search_title)
+                if result:
+                    logger.info("Found work by author name '%s' after ID search failed", ol_author.name)
+            except Exception as e:
+                logger.warning("Failed to lookup author by ID %s: %s", author_olid, e)
+
+        # If still no result or no author_olid, try title-only search
         if not result:
-            # TODO: better handling
-            raise Exception("no result")
+            result = ol.Work.search(title=search_title)
+            if not result:
+                # TODO: better handling
+                raise Exception("no result")
         
     display_title = result.title
     work_olid = result.identifiers['olid'][0]
