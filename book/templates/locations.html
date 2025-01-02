@@ -90,28 +90,25 @@
                                         
                                         <li class="list-group-item">
                                             {{ bookcase.name }} ({{ bookcase.shelf_count }} shelves)
-                                            
+                                            <div class="ms-4">
+                                                <h6>Shelves:</h6>
+                                                <ul class="list-group">
                                             {% for shelf in shelves %}
-                                                {% if shelf.bookcase_id == bookcase.id %}
-                                                    {% if forloop.first %}
-                                                        <div class="ms-4">
-                                                            <h6>Shelves:</h6>
-                                                            <ul class="list-group">
-                                                    {% endif %}
-                                                    
+                                                {% if shelf.bookcase_id == bookcase.id %}                                                    
                                                     <li class="list-group-item">
                                                         Shelf {{ shelf.position }}
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" 
+                                                                onclick="showEditShelfNotesModal({{ shelf.id }}, '{{ shelf.notes|escapejs }}')">
+                                                            Edit Notes
+                                                        </button>
                                                         {% if shelf.notes %}
                                                             <br><small>{{ shelf.notes }}</small>
                                                         {% endif %}
                                                     </li>
-                                                    
-                                                    {% if forloop.last %}
-                                                            </ul>
-                                                        </div>
-                                                    {% endif %}
                                                 {% endif %}
                                             {% endfor %}
+                                        </ul>
+                                    </div>
                                         </li>
                                         
                                         {% if forloop.last %}
@@ -170,6 +167,31 @@
     </div>
 </div>
 
+<div class="modal fade" id="editShelfNotesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Shelf Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="shelfNotesForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="edit_shelf_id" name="shelf_id">
+                    <div class="mb-3">
+                        <label for="shelf_notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="edit_shelf_notes" name="notes"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateShelfNotes()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function showAddShelfForm(bookcaseId) {
     document.getElementById('shelf_parent_bookcase').value = bookcaseId;
@@ -191,5 +213,36 @@ document.getElementById('id_entity_type').addEventListener('change', function() 
     document.getElementById('shelf-fields').style.display = 
         entityType === 'SHELF' ? 'block' : 'none';
 });
+
+function showEditShelfNotesModal(shelfId, notes) {
+    document.getElementById('edit_shelf_id').value = shelfId;
+    document.getElementById('edit_shelf_notes').value = notes;
+    new bootstrap.Modal(document.getElementById('editShelfNotesModal')).show();
+}
+
+function updateShelfNotes() {
+    const shelfId = document.getElementById('edit_shelf_id').value;
+    const notes = document.getElementById('edit_shelf_notes').value;
+    const form = new FormData();
+    form.append('notes', notes);
+    form.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    fetch(`/api/shelves/${shelfId}/update-notes/`, {
+        method: 'POST',
+        body: form
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.reload();
+        } else {
+            alert('Error updating shelf notes');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating shelf notes');
+    });
+}
 </script>
 {% endblock %} 

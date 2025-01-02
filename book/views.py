@@ -6,6 +6,7 @@ from django.http import HttpResponseRedirect
 from django.http.response import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 
 from olclient.openlibrary import OpenLibrary
 
@@ -366,3 +367,13 @@ def assign_location(request, copy_id):
         return HttpResponseRedirect(reverse('index'))
     
     return HttpResponseBadRequest("POST request required")
+
+@require_http_methods(["POST"])
+def update_shelf_notes(request, shelf_id):
+    try:
+        shelf = Shelf.objects.get(id=shelf_id)
+        shelf.notes = request.POST.get('notes', '')
+        shelf.save()
+        return JsonResponse({'status': 'success'})
+    except Shelf.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Shelf not found'}, status=404)

@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations, get_rooms, get_bookcases, get_shelves, assign_location
+from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations, get_rooms, get_bookcases, get_shelves, assign_location, update_shelf_notes
 from .api_views import api_root
 
 urlpatterns = [
@@ -36,4 +36,5 @@ urlpatterns = [
     path('api/bookcases/<int:room_id>/', get_bookcases, name='get_bookcases'),
     path('api/shelves/<int:bookcase_id>/', get_shelves, name='get_shelves'),
     path('copy/<int:copy_id>/assign-location/', assign_location, name='assign_location'),
+    path('api/shelves/<int:shelf_id>/update-notes/', update_shelf_notes, name='update_shelf_notes'),
 ]
