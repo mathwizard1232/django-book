@@ -112,101 +112,100 @@ def get_title(request):
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
+    if request.method == 'POST':
+        return _handle_book_confirmation(request)
+    else:
+        return _handle_book_search(request)
+
+def _handle_book_confirmation(request):
+    """Process the confirmed book selection and create local records"""
+    action = request.POST.get('action', 'Confirm Without Shelving')
+    
+    # Get the work_olid from the POST data
+    work_olid = request.POST.get('work_olid')
+    if not work_olid:
+        return HttpResponseBadRequest('work_olid required')
+        
+    # Get other required fields from POST
+    display_title = request.POST.get('title')
+    author_olid = request.POST.get('author_olid')
+    publisher = request.POST.get('publisher')
+    search_title = request.POST.get('title', display_title)  # Fall back to display_title if search_title not available
+
+    # If we don't have a record of this Work yet, record it now.
+    work_qs = Work.objects.filter(olid=work_olid)
+    if not work_qs:
+        work = Work.objects.create(
+            olid=work_olid,
+            title=display_title,
+            search_name=search_title,
+            type='NOVEL',  # Default type, could be made configurable
+        )
+        work.authors.add(Author.objects.get(olid=author_olid))
+        logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
+    else:
+        work = work_qs[0]
+
+    # Create a default Edition
+    edition = Edition.objects.create(
+        work=work,
+        publisher=publisher if publisher else "Unknown",
+        format="PAPERBACK",   # Default format
+    )
+
+    # Create a Copy with optional shelf assignment
+    copy_data = {
+        'edition': edition,
+        'condition': "GOOD",  # Default condition
+    }
+
+    if action == 'Confirm and Shelve':
+        shelf_id = request.POST.get('shelf')
+        if shelf_id:
+            shelf = Shelf.objects.get(id=shelf_id)
+            copy_data.update({
+                'shelf': shelf,
+                'location': shelf.bookcase.get_location(),
+                'room': shelf.bookcase.room,
+                'bookcase': shelf.bookcase
+            })
+
+    copy = Copy.objects.create(**copy_data)
+
+    return HttpResponseRedirect('/author/')
+
+def _handle_book_search(request):
+    """Search for and display potential book matches"""
     ol = CachedOpenLibrary()
-    # Build the link back to the author page
-    params = {}
-    params = request.GET if request.method == 'GET' else params
-    params = request.POST if request.method == 'POST' else params
+    
+    # Get search parameters
+    params = request.GET
     if 'title' not in params:
         return HttpResponse('Title required')
+    
     search_title = params['title']
-    author = None  # search just on title if no author chosen
     args = {}
-    author_olid = None
-    if 'author_name' in params:  # use author name as default if given; save in context
-        author=params['author_name']
-        args['author_name'] = author
-    if 'author_olid' in params:  # prefer OpenLibrary ID if specified
-        author_olid=params['author_olid']
-        args['author_olid'] = author_olid
-        author = author_olid
+    
+    # Build author context
+    if 'author_name' in params:
+        args['author_name'] = params['author_name']
+    if 'author_olid' in params:
+        args['author_olid'] = params['author_olid']
+    
     context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
 
+    # Handle local autocomplete results
     if DIVIDER in search_title:
-        # This is an autocomplete result already known locally
-        # No need to confirm; go ahead to next step
         title, olid = search_title.split(DIVIDER)
         args['title'] = title
         args['work_olid'] = olid
         context['form'] = ConfirmBook(args)
-        #return render(request, 'just-entered-book.html', context)
-        # temporary hack for faster entry loop; eventually add a mode to switch where we go
-        # TODO: real switching
         return HttpResponseRedirect('/author')
 
-    # Initial search with author ID if available
-    logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author, search_title)
-    try:
-        results = ol.Work.search(author=author, title=search_title, limit=2)
-        logger.info("OpenLibrary search results type: %s", type(results))
-        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
-            logger.info("Got list of %d results", len(results))
-            for i, result in enumerate(results):
-                logger.info("Result %d: %s", i+1, vars(result))
-        else:
-            logger.info("Got single result: %s", vars(results) if results else None)
-    except Exception as e:
-        logger.exception("Error during OpenLibrary search")
-        raise
-
-    # If we only got one result or no results, try additional search strategies
-    if not results or not (hasattr(results, '__iter__') and not isinstance(results, (str, bytes))) or (hasattr(results, '__len__') and len(results) == 1):
-        additional_results = []
-        
-        # Try searching by author name if we have an author_olid
-        if author_olid and 'author_name' in params:
-            try:
-                # Use local Author model instead of OpenLibrary lookup
-                local_author = Author.objects.get(olid=author_olid)
-                logger.info("Trying search with author name '%s' instead of ID", local_author.primary_name)
-                name_results = ol.Work.search(author=local_author.primary_name, title=search_title, limit=2)
-                if name_results:
-                    logger.info("Found works by author name '%s' after ID search failed", local_author.primary_name)
-                    # Only add results that aren't duplicates of what we already have
-                    if results and hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
-                        existing_olid = results[0].identifiers['olid'][0]
-                        additional_results.extend([r for r in name_results 
-                                                if r.identifiers['olid'][0] != existing_olid])
-                    else:
-                        additional_results.extend(name_results)
-                logger.info("Results from name search: %s", name_results)
-            except Author.DoesNotExist:
-                logger.warning("Local author not found for ID %s - skipping name search", author_olid)
-            except Exception as e:
-                logger.warning("Error during author name search: %s", e)
-
-        # If still no results, try title-only search
-        if not results and not additional_results:
-            logger.info("Trying title-only search for '%s'", search_title)
-            try:
-                title_results = ol.Work.search(title=search_title, limit=2)
-                logger.info("Results from title-only search: %s", title_results)
-                if title_results:
-                    additional_results.extend(title_results)
-            except Exception as e:
-                logger.warning("Error during title-only search: %s", e)
-                if not results and not additional_results:
-                    raise Exception("no result")
-
-        # Combine original results with additional results, maintaining limit of 2
-        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
-            results.extend(additional_results)
-        else:
-            results = [results] if results else []
-            results.extend(additional_results)
-        results = results[:2]  # Keep only first two results
-
-    # Continue with all results
+    # Search OpenLibrary
+    results = _search_openlibrary(ol, search_title, args.get('author_olid'), args.get('author_name'))
+    
+    # Build forms for results
     forms = []
     for result in results:
         display_title = result.title
@@ -215,71 +214,59 @@ def confirm_book(request):
         publisher = result.publisher
         author_name = result.authors[0]['name']
 
-        args = {
+        form_args = {
             'title': display_title,
             'work_olid': work_olid,
             'publisher': publisher,
             'publish_year': publish_year,
             'author_name': author_name
         }
-        if author_olid:
-            args['author_olid'] = author_olid
-        forms.append(ConfirmBook(args))
+        if args.get('author_olid'):
+            form_args['author_olid'] = args['author_olid']
+        forms.append(ConfirmBook(form_args))
 
-    # Display confirmation form(s)
-    if request.method == 'GET':
-        # Add locations to context for the template
-        context['locations'] = Location.objects.all()
-        context['forms'] = forms
-        logger.info("Rendering confirm-book.html with context: %s", context)
-        return render(request, 'confirm-book.html', context)
-    # Process confirmation and direct to next step
-    elif request.method == 'POST':
-        action = request.POST.get('action', 'Confirm Without Shelving')
-        
-        # If we don't have a record of this Work yet, record it now.
-        work_qs = Work.objects.filter(olid=work_olid)
-        if not work_qs:
-            work = Work.objects.create(
-                olid=work_olid,
-                title=display_title,
-                search_name=search_title,
-                type='NOVEL',  # Default type, could be made configurable
-            )
-            work.authors.add(Author.objects.get(olid=author_olid))
-            logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
-        else:
-            work = work_qs[0]
+    # Add locations to context for the template
+    context['locations'] = Location.objects.all()
+    context['forms'] = forms
+    
+    return render(request, 'confirm-book.html', context)
 
-        # Create a default Edition
-        edition = Edition.objects.create(
-            work=work,
-            publisher=publisher if publisher else "Unknown",
-            format="PAPERBACK",   # Default format
-        )
+def _search_openlibrary(ol, title, author_olid=None, author_name=None):
+    """Search OpenLibrary for works matching title and author"""
+    results = []
+    
+    # Try initial search with author ID if available
+    if author_olid:
+        logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author_olid, title)
+        try:
+            results = ol.Work.search(author=author_olid, title=title, limit=2)
+        except Exception as e:
+            logger.exception("Error during OpenLibrary search")
+            raise
 
-        # Create a Copy with optional shelf assignment
-        copy_data = {
-            'edition': edition,
-            'condition': "GOOD",  # Default condition
-        }
+    # If no results with ID, try author name
+    if not results and author_name:
+        try:
+            logger.info("Trying search with author name '%s'", author_name)
+            name_results = ol.Work.search(author=author_name, title=title, limit=2)
+            if name_results:
+                results.extend(name_results)
+        except Exception as e:
+            logger.warning("Error during author name search: %s", e)
 
-        if action == 'Confirm and Shelve':
-            shelf_id = request.POST.get('shelf')
-            if shelf_id:
-                shelf = Shelf.objects.get(id=shelf_id)
-                copy_data.update({
-                    'shelf': shelf,
-                    'location': shelf.bookcase.get_location(),
-                    'room': shelf.bookcase.room,
-                    'bookcase': shelf.bookcase
-                })
+    # If still no results, try title-only search
+    if not results:
+        logger.info("Trying title-only search for '%s'", title)
+        try:
+            title_results = ol.Work.search(title=title, limit=2)
+            if title_results:
+                results.extend(title_results)
+        except Exception as e:
+            logger.warning("Error during title-only search: %s", e)
+            if not results:
+                raise Exception("no result")
 
-        copy = Copy.objects.create(**copy_data)
-        context['copy'] = copy
-
-        #return render(request, 'just-entered-book.html', context)
-        return HttpResponseRedirect('/author/')
+    return results[:2]  # Keep only first two results
 
 def author_autocomplete(request):
     """ Return a list of autocomplete suggestions for authors """
