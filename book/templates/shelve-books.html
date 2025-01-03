@@ -21,6 +21,15 @@
                 </div>
             </div>
             
+            <!-- Add shelf notes display -->
+            <div id="shelfNotesDisplay" class="row mb-3" style="display: none;">
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        <small id="shelfNotes"></small>
+                    </div>
+                </div>
+            </div>
+            
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="room" class="form-label">Room</label>
@@ -116,7 +125,19 @@
 </div>
 
 <script>
-    // Reuse the existing location hierarchy JavaScript
+    // Store last used selections
+    let lastUsedBookcase = localStorage.getItem('lastUsedBookcase');
+    let lastUsedShelf = localStorage.getItem('lastUsedShelf');
+
+    // Auto-select single location if it's the only option
+    window.addEventListener('DOMContentLoaded', function() {
+        const locationSelect = document.getElementById('location');
+        if (locationSelect.options.length === 2) {  // Including the placeholder option
+            locationSelect.selectedIndex = 1;
+            loadRooms(locationSelect.value);
+        }
+    });
+
     document.getElementById('location').addEventListener('change', function() {
         loadRooms(this.value);
     });
@@ -126,14 +147,42 @@
     });
     
     document.getElementById('bookcase').addEventListener('change', function() {
-        loadShelves(this.value);
+        const bookcaseId = this.value;
+        loadShelves(bookcaseId);
+        if (bookcaseId) {
+            localStorage.setItem('lastUsedBookcase', bookcaseId);
+        }
     });
 
     document.getElementById('shelf').addEventListener('change', function() {
         const shelfId = this.value;
         document.getElementById('selectedShelf').value = shelfId;
+        if (shelfId) {
+            localStorage.setItem('lastUsedShelf', shelfId);
+            displayShelfNotes(shelfId);
+        } else {
+            document.getElementById('shelfNotesDisplay').style.display = 'none';
+        }
         updateShelveButton();
     });
+
+    function displayShelfNotes(shelfId) {
+        const shelfSelect = document.getElementById('shelf');
+        const selectedOption = Array.from(shelfSelect.options).find(opt => opt.value === shelfId);
+        if (!selectedOption) return;
+        
+        const notesDisplay = document.getElementById('shelfNotesDisplay');
+        const notesText = document.getElementById('shelfNotes');
+        
+        // Get the shelf data from the current selection
+        const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
+        if (shelf && shelf.notes) {
+            notesText.textContent = shelf.notes;
+            notesDisplay.style.display = 'block';
+        } else {
+            notesDisplay.style.display = 'none';
+        }
+    }
 
     // Select all functionality
     document.getElementById('selectAll').addEventListener('change', function() {
@@ -162,7 +211,6 @@
         document.getElementById('shelveForm').submit();
     });
 
-    // Reuse existing location hierarchy functions
     function loadRooms(locationId) {
         if (!locationId) {
             disableSelect('room');
@@ -170,7 +218,15 @@
         }
         fetch(`/api/rooms/${locationId}`)
             .then(response => response.json())
-            .then(rooms => updateSelect('room', rooms));
+            .then(rooms => {
+                updateSelect('room', rooms);
+                // Auto-select if single room
+                const roomSelect = document.getElementById('room');
+                if (roomSelect.options.length === 2) {
+                    roomSelect.selectedIndex = 1;
+                    loadBookcases(roomSelect.value);
+                }
+            });
     }
     
     function loadBookcases(roomId) {
@@ -180,7 +236,20 @@
         }
         fetch(`/api/bookcases/${roomId}`)
             .then(response => response.json())
-            .then(bookcases => updateSelect('bookcase', bookcases));
+            .then(bookcases => {
+                updateSelect('bookcase', bookcases);
+                // Try to select last used bookcase if available
+                if (lastUsedBookcase) {
+                    const bookcaseSelect = document.getElementById('bookcase');
+                    for (let i = 0; i < bookcaseSelect.options.length; i++) {
+                        if (bookcaseSelect.options[i].value === lastUsedBookcase) {
+                            bookcaseSelect.selectedIndex = i;
+                            loadShelves(lastUsedBookcase);
+                            break;
+                        }
+                    }
+                }
+            });
     }
     
     function loadShelves(bookcaseId) {
@@ -190,7 +259,22 @@
         }
         fetch(`/api/shelves/${bookcaseId}`)
             .then(response => response.json())
-            .then(shelves => updateSelect('shelf', shelves));
+            .then(shelves => {
+                updateSelect('shelf', shelves);
+                // Try to select last used shelf if available
+                if (lastUsedShelf) {
+                    const shelfSelect = document.getElementById('shelf');
+                    for (let i = 0; i < shelfSelect.options.length; i++) {
+                        if (shelfSelect.options[i].value === lastUsedShelf) {
+                            shelfSelect.selectedIndex = i;
+                            document.getElementById('selectedShelf').value = lastUsedShelf;
+                            displayShelfNotes(lastUsedShelf);
+                            updateShelveButton();
+                            break;
+                        }
+                    }
+                }
+            });
     }
     
     function updateSelect(elementId, options) {
@@ -201,6 +285,8 @@
             const option = document.createElement('option');
             option.value = opt.id;
             option.textContent = opt.name;
+            // Store the full shelf data on the option element
+            option.shelf = opt;
             select.appendChild(option);
         });
     }

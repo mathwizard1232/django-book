@@ -339,7 +339,11 @@ def get_bookcases(request, room_id):
 
 def get_shelves(request, bookcase_id):
     shelves = Shelf.objects.filter(bookcase_id=bookcase_id)
-    return JsonResponse([{'id': s.id, 'name': f'Shelf {s.position}'} for s in shelves], safe=False)
+    return JsonResponse([{
+        'id': s.id, 
+        'name': f'Shelf {s.position}',
+        'notes': s.notes
+    } for s in shelves], safe=False)
 
 def assign_location(request, copy_id):
     if request.method == 'POST':
@@ -414,3 +418,15 @@ def shelve_books(request):
     }
     
     return render(request, 'shelve-books.html', context)
+
+def get_shelf_details(request, shelf_id):
+    """Return shelf details including notes"""
+    try:
+        shelf = Shelf.objects.get(id=shelf_id)
+        return JsonResponse({
+            'id': shelf.id,
+            'position': shelf.position,
+            'notes': shelf.notes
+        })
+    except Shelf.DoesNotExist:
+        return JsonResponse({'error': 'Shelf not found'}, status=404)
