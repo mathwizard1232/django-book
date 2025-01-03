@@ -5,39 +5,55 @@
     {% csrf_token %}
     {{ form.as_p }}
     
-    <!-- Add location selection -->
-    <div class="mb-3">
-        <label for="location" class="form-label">Building/Location (Optional)</label>
-        <select class="form-select" id="location" name="location">
-            <option value="">Select location...</option>
-            {% for location in locations %}
-                <option value="{{ location.id }}">{{ location.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    
-    <div class="mb-3">
-        <label for="room" class="form-label">Room</label>
-        <select class="form-select" id="room" name="room" disabled>
-            <option value="">Select room...</option>
-        </select>
-    </div>
-    
-    <div class="mb-3">
-        <label for="bookcase" class="form-label">Bookcase</label>
-        <select class="form-select" id="bookcase" name="bookcase" disabled>
-            <option value="">Select bookcase...</option>
-        </select>
-    </div>
-    
-    <div class="mb-3">
-        <label for="shelf" class="form-label">Shelf</label>
-        <select class="form-select" id="shelf" name="shelf" disabled>
-            <option value="">Select shelf...</option>
-        </select>
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Assign Location (Optional)</h5>
+        </div>
+        <div class="card-body">
+            <!-- Add location selection -->
+            <div class="mb-3">
+                <label for="location" class="form-label">Building/Location</label>
+                <select class="form-select" id="location" name="location">
+                    <option value="">Select location...</option>
+                    {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="room" class="form-label">Room</label>
+                <select class="form-select" id="room" name="room" disabled>
+                    <option value="">Select room...</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="bookcase" class="form-label">Bookcase</label>
+                <select class="form-select" id="bookcase" name="bookcase" disabled>
+                    <option value="">Select bookcase...</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="shelf" class="form-label">Shelf</label>
+                <select class="form-select" id="shelf" name="shelf" disabled>
+                    <option value="">Select shelf...</option>
+                </select>
+            </div>
+
+            <div id="shelfNotesDisplay" class="mb-3" style="display: none;">
+                <div class="alert alert-info">
+                    <small id="shelfNotes"></small>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <input type="submit" value="Confirm" autofocus>
+    <div class="d-flex gap-2">
+        <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
+        <input type="submit" name="action" value="Confirm and Shelve" class="btn btn-primary" id="shelveButton" disabled>
+    </div>
 </form>
 <br>
 <a href={{ title_url }}>Change title</a>
@@ -68,8 +84,30 @@
         const shelfId = this.value;
         if (shelfId) {
             localStorage.setItem('lastUsedShelf', shelfId);
+            displayShelfNotes(shelfId);
+        } else {
+            document.getElementById('shelfNotesDisplay').style.display = 'none';
         }
+        updateShelveButton();
     });
+
+    function displayShelfNotes(shelfId) {
+        const shelfSelect = document.getElementById('shelf');
+        const selectedOption = Array.from(shelfSelect.options).find(opt => opt.value === shelfId);
+        if (!selectedOption) return;
+        
+        const notesDisplay = document.getElementById('shelfNotesDisplay');
+        const notesText = document.getElementById('shelfNotes');
+        
+        // Get the shelf data from the current selection
+        const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
+        if (shelf && shelf.notes) {
+            notesText.textContent = shelf.notes;
+            notesDisplay.style.display = 'block';
+        } else {
+            notesDisplay.style.display = 'none';
+        }
+    }
 
     function loadRooms(locationId) {
         if (!locationId) {
@@ -127,6 +165,8 @@
                     for (let i = 0; i < shelfSelect.options.length; i++) {
                         if (shelfSelect.options[i].value === lastUsedShelf) {
                             shelfSelect.selectedIndex = i;
+                            displayShelfNotes(lastUsedShelf);
+                            updateShelveButton();
                             break;
                         }
                     }
@@ -142,6 +182,8 @@
             const option = document.createElement('option');
             option.value = opt.id;
             option.textContent = opt.name;
+            // Store the full shelf data on the option element
+            option.shelf = opt;
             select.appendChild(option);
         });
     }
@@ -160,5 +202,11 @@
             loadRooms(locationSelect.value);
         }
     });
+
+    function updateShelveButton() {
+        const shelfSelect = document.getElementById('shelf');
+        const hasSelectedShelf = shelfSelect.selectedIndex > 0;
+        document.getElementById('shelveButton').disabled = !hasSelectedShelf;
+    }
 </script>
 {% endblock %}

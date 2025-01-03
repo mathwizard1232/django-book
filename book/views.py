@@ -185,9 +185,13 @@ def confirm_book(request):
 
     # Display confirmation form, or
     if request.method == 'GET':
+        # Add locations to context for the template
+        context['locations'] = Location.objects.all()
         return render(request, 'confirm-book.html', context)
     # Process confirmation and direct to next step
     elif request.method == 'POST':
+        action = request.POST.get('action', 'Confirm Without Shelving')
+        
         # If we don't have a record of this Work yet, record it now.
         work_qs = Work.objects.filter(olid=work_olid)
         if not work_qs:
@@ -204,22 +208,30 @@ def confirm_book(request):
 
         # Create a default Edition
         edition = Edition.objects.create(
-            work=work,  # Now using Work instead of Book
+            work=work,
             publisher=publisher if publisher else "Unknown",
             format="PAPERBACK",   # Default format
         )
 
-        # Create an unshelved Copy
-        copy = Copy.objects.create(
-            edition=edition,
-            condition="GOOD",  # Default condition
-        )
+        # Create a Copy with optional shelf assignment
+        copy_data = {
+            'edition': edition,
+            'condition': "GOOD",  # Default condition
+        }
 
-        # Update context to include the copy for the template
+        if action == 'Confirm and Shelve':
+            shelf_id = request.POST.get('shelf')
+            if shelf_id:
+                shelf = Shelf.objects.get(id=shelf_id)
+                copy_data.update({
+                    'shelf': shelf,
+                    'location': shelf.bookcase.get_location(),
+                    'room': shelf.bookcase.room,
+                    'bookcase': shelf.bookcase
+                })
+
+        copy = Copy.objects.create(**copy_data)
         context['copy'] = copy
-
-        # Add locations to context for the template
-        context['locations'] = Location.objects.all()
 
         return render(request, 'just-entered-book.html', context)
 
