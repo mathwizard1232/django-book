@@ -1,4 +1,4 @@
-# LibraCents
+# LibraCents (or maybe Super Book or maybe Django-Book)
 A value-conscious personal library management system that prioritizes quick, efficient book entry and organization.
 
 ## Credits

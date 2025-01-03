@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from olclient.openlibrary import OpenLibrary
+from olclient2.openlibrary import OpenLibrary
 
 from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook, LocationForm, LocationEntityForm
 from .models import Author, Book, Location, Room, Bookcase, Shelf, Work, Edition, Copy
@@ -147,33 +147,60 @@ def confirm_book(request):
     # This is the OpenLibrary lookup using author if given (by ID, hopefully) and title
     # It gives the single closest match in its view
     # With some hacking of the client, multiple results could be returned for alternate selections if needed
-    result = ol.Work.search(author=author, title=search_title)
+    logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author, search_title)
+    try:
+        # Log the actual URL being constructed
+        url = f'{ol.base_url}/search.json?title={search_title}'
+        if author:
+            url += f'&author={author}'
+        url += '&limit=2'
+        logger.info("OpenLibrary search URL: %s", url)
+        
+        response = ol.session.get(url)
+        logger.info("OpenLibrary response status: %d", response.status_code)
+        logger.info("OpenLibrary response text: %s", response.text[:1000])  # First 1000 chars in case it's long
+        
+        results = ol.Work.search(author=author, title=search_title, limit=2)
+        logger.info("OpenLibrary search results type: %s", type(results))
+        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):  # Check if iterable but not string
+            logger.info("Got list of %d results", len(results))
+            for i, result in enumerate(results):
+                logger.info("Result %d: %s", i+1, vars(result))
+        else:
+            logger.info("Got single result: %s", vars(results) if results else None)
+    except Exception as e:
+        logger.exception("Error during OpenLibrary search")
+        raise
 
-    if not result:
+    if not results:
         # try searching by author name if we have an author_olid
         if author_olid:
             try:
                 ol_author = ol.Author.get(author_olid)
-                result = ol.Work.search(author=ol_author.name, title=search_title)
-                if result:
-                    logger.info("Found work by author name '%s' after ID search failed", ol_author.name)
+                logger.info("Trying search with author name '%s' instead of ID", ol_author.name)
+                results = ol.Work.search(author=ol_author.name, title=search_title, limit=2)
+                if results:
+                    logger.info("Found works by author name '%s' after ID search failed", ol_author.name)
+                logger.info("Results from name search: %s", results)
             except Exception as e:
                 logger.warning("Failed to lookup author by ID %s: %s", author_olid, e)
 
         # If still no result or no author_olid, try title-only search
-        if not result:
-            result = ol.Work.search(title=search_title)
-            if not result:
+        if not results:
+            logger.info("Trying title-only search for '%s'", search_title)
+            results = ol.Work.search(title=search_title, limit=2)
+            logger.info("Results from title-only search: %s", results)
+            if not results:
                 # TODO: better handling
                 raise Exception("no result")
         
-    display_title = result.title
-    work_olid = result.identifiers['olid'][0]
-    publish_year = result.publish_date
-    publisher = result.publisher
+    display_title = results[0].title
+    work_olid = results[0].identifiers['olid'][0]
+    publish_year = results[0].publish_date
+    publisher = results[0].publisher
 
     # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
-    author_name = result.authors[0]['name']
+    author_name = results[0].authors[0]['name']
 
     # This block is setting up the context and form to display the book
     args['title'] = display_title

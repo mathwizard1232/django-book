@@ -1,3 +1,3 @@
 [submodule "openlibrary-client-2"]
 	path = openlibrary-client-2
-	url = https://github.com/mathwizard1232/openlibrary-client-2
+	url = git@github.com:mathwizard1232/openlibrary-client-2.git
