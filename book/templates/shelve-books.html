@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Shelve Books</h2>
+    
+    <!-- Location Selection Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Select Destination Shelf</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="location" class="form-label">Building/Location</label>
+                    <select class="form-select" id="location" name="location">
+                        <option value="">Select location...</option>
+                        {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="room" class="form-label">Room</label>
+                    <select class="form-select" id="room" name="room" disabled>
+                        <option value="">Select room...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="bookcase" class="form-label">Bookcase</label>
+                    <select class="form-select" id="bookcase" name="bookcase" disabled>
+                        <option value="">Select bookcase...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="shelf" class="form-label">Shelf</label>
+                    <select class="form-select" id="shelf" name="shelf" disabled>
+                        <option value="">Select shelf...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unshelved Books Section -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Unshelved Books</h5>
+            <button class="btn btn-primary" id="shelveSelectedBtn" disabled>
+                Shelve Selected Books
+            </button>
+        </div>
+        <div class="card-body">
+            <form id="shelveForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" id="selectedShelf" name="shelf_id" value="">
+                
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" class="form-check-input">
+                                </th>
+                                <th>Title</th>
+                                <th>Author(s)</th>
+                                <th>Current Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for copy in unshelved_copies %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="copy_ids" value="{{ copy.id }}" 
+                                           class="form-check-input copy-checkbox">
+                                </td>
+                                <td>{{ copy.edition.work.title }}</td>
+                                <td>
+                                    {% for author in copy.edition.work.authors.all %}
+                                        {{ author.primary_name }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% if copy.location %}
+                                        {{ copy.location.name }}
+                                        {% if copy.room %}
+                                            > {{ copy.room.name }}
+                                        {% endif %}
+                                        {% if copy.bookcase %}
+                                            > {{ copy.bookcase.name }}
+                                        {% endif %}
+                                    {% else %}
+                                        Unassigned
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">No books need shelving!</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Reuse the existing location hierarchy JavaScript
+    document.getElementById('location').addEventListener('change', function() {
+        loadRooms(this.value);
+    });
+    
+    document.getElementById('room').addEventListener('change', function() {
+        loadBookcases(this.value);
+    });
+    
+    document.getElementById('bookcase').addEventListener('change', function() {
+        loadShelves(this.value);
+    });
+
+    document.getElementById('shelf').addEventListener('change', function() {
+        const shelfId = this.value;
+        document.getElementById('selectedShelf').value = shelfId;
+        updateShelveButton();
+    });
+
+    // Select all functionality
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.getElementsByClassName('copy-checkbox');
+        for (let checkbox of checkboxes) {
+            checkbox.checked = this.checked;
+        }
+        updateShelveButton();
+    });
+
+    // Individual checkbox handling
+    document.querySelectorAll('.copy-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateShelveButton);
+    });
+
+    function updateShelveButton() {
+        const hasSelectedShelf = document.getElementById('selectedShelf').value !== '';
+        const hasSelectedBooks = Array.from(document.getElementsByClassName('copy-checkbox'))
+            .some(cb => cb.checked);
+        
+        document.getElementById('shelveSelectedBtn').disabled = !(hasSelectedShelf && hasSelectedBooks);
+    }
+
+    // Form submission
+    document.getElementById('shelveSelectedBtn').addEventListener('click', function() {
+        document.getElementById('shelveForm').submit();
+    });
+
+    // Reuse existing location hierarchy functions
+    function loadRooms(locationId) {
+        if (!locationId) {
+            disableSelect('room');
+            return;
+        }
+        fetch(`/api/rooms/${locationId}`)
+            .then(response => response.json())
+            .then(rooms => updateSelect('room', rooms));
+    }
+    
+    function loadBookcases(roomId) {
+        if (!roomId) {
+            disableSelect('bookcase');
+            return;
+        }
+        fetch(`/api/bookcases/${roomId}`)
+            .then(response => response.json())
+            .then(bookcases => updateSelect('bookcase', bookcases));
+    }
+    
+    function loadShelves(bookcaseId) {
+        if (!bookcaseId) {
+            disableSelect('shelf');
+            return;
+        }
+        fetch(`/api/shelves/${bookcaseId}`)
+            .then(response => response.json())
+            .then(shelves => updateSelect('shelf', shelves));
+    }
+    
+    function updateSelect(elementId, options) {
+        const select = document.getElementById(elementId);
+        select.disabled = false;
+        select.innerHTML = '<option value="">Select...</option>';
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.id;
+            option.textContent = opt.name;
+            select.appendChild(option);
+        });
+    }
+    
+    function disableSelect(elementId) {
+        const select = document.getElementById(elementId);
+        select.disabled = true;
+        select.innerHTML = '<option value="">Select...</option>';
+    }
+</script>
+{% endblock %}

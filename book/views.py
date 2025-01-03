@@ -377,3 +377,40 @@ def update_shelf_notes(request, shelf_id):
         return JsonResponse({'status': 'success'})
     except Shelf.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Shelf not found'}, status=404)
+
+def shelve_books(request):
+    """Display and manage books that need to be shelved"""
+    if request.method == 'POST':
+        shelf_id = request.POST.get('shelf_id')
+        copy_ids = request.POST.getlist('copy_ids')
+        
+        if shelf_id and copy_ids:
+            shelf = Shelf.objects.get(id=shelf_id)
+            # Update all selected copies
+            Copy.objects.filter(id__in=copy_ids).update(
+                shelf_id=shelf_id,
+                location=shelf.bookcase.get_location(),
+                room=shelf.bookcase.room,
+                bookcase=shelf.bookcase
+            )
+            return HttpResponseRedirect(reverse('shelve_books'))
+    
+    # Get all copies that don't have a shelf assigned
+    unshelved_copies = Copy.objects.filter(
+        shelf__isnull=True
+    ).select_related(
+        'edition__work',
+        'location',
+        'room',
+        'bookcase'
+    )
+    
+    # Get all locations for the location hierarchy
+    locations = Location.objects.all()
+    
+    context = {
+        'unshelved_copies': unshelved_copies,
+        'locations': locations,
+    }
+    
+    return render(request, 'shelve-books.html', context)
