@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from olclient2.openlibrary import OpenLibrary
+from .utils.ol_client import CachedOpenLibrary
 
 from .forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio, TitleForm, TitleGivenAuthorForm, ConfirmBook, LocationForm, LocationEntityForm
 from .models import Author, Book, Location, Room, Bookcase, Shelf, Work, Edition, Copy
@@ -40,7 +40,7 @@ def confirm_author(request):
             # Directly send them to title entry
             name, olid = name.split(DIVIDER)
             return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}')
-        ol = OpenLibrary()
+        ol = CachedOpenLibrary()
         results = ol.Author.search(name, 2)
         if not results:
             return HttpResponseRedirect('/author')  # If we get a bad request, just have them try again
@@ -112,7 +112,7 @@ def get_title(request):
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
-    ol = OpenLibrary()
+    ol = CachedOpenLibrary()
     # Build the link back to the author page
     params = {}
     params = request.GET if request.method == 'GET' else params
@@ -149,20 +149,9 @@ def confirm_book(request):
     # With some hacking of the client, multiple results could be returned for alternate selections if needed
     logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author, search_title)
     try:
-        # Log the actual URL being constructed
-        url = f'{ol.base_url}/search.json?title={search_title}'
-        if author:
-            url += f'&author={author}'
-        url += '&limit=2'
-        logger.info("OpenLibrary search URL: %s", url)
-        
-        response = ol.session.get(url)
-        logger.info("OpenLibrary response status: %d", response.status_code)
-        logger.info("OpenLibrary response text: %s", response.text[:1000])  # First 1000 chars in case it's long
-        
         results = ol.Work.search(author=author, title=search_title, limit=2)
         logger.info("OpenLibrary search results type: %s", type(results))
-        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):  # Check if iterable but not string
+        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
             logger.info("Got list of %d results", len(results))
             for i, result in enumerate(results):
                 logger.info("Result %d: %s", i+1, vars(result))
@@ -282,7 +271,7 @@ def author_autocomplete(request):
 
     # otherwise, do an OpenLibrary API search
     RESULTS_LIMIT = 5
-    ol = OpenLibrary()
+    ol = CachedOpenLibrary()
     authors = ol.Author.search(search_str, RESULTS_LIMIT)
     names = [author['name'] for author in authors]  # TODO: this should really be going by OLID rather than by name;
     return JsonResponse(names, safe=False)  # safe=False required to allow list rather than dict
@@ -306,7 +295,7 @@ def title_autocomplete(request, oid):
         return JsonResponse([book.title + DIVIDER + book.olid for book in book_qs], safe=False)
 
     # then try to do OpenLibrary API lookup
-    ol = OpenLibrary()    
+    ol = CachedOpenLibrary()    
     result = ol.Work.search(author=oid, title=title)
     if not result:
         logger.warning("Failed to lookup title autocomplete for author oid %s and title %s", oid, title)
