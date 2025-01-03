@@ -58,7 +58,7 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Visuals inconsistent (UI text with background color set or not)
 
 ## Wishlist
-
+* Better support for multiple author ids for same author in OpenLibrary
 * Add a mode for switching between "slow" ("this book has now been entered" with options), or "repeat author" (input set of one author) or "repeat entry" (input series of books) ; this saves a click at the end of entry for on-going sets (currently hardcoded to fast after duplicate titles)
 * Remote backup and restore capabilities
 * Custom entry for books not found

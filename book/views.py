@@ -251,6 +251,18 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
             name_results = ol.Work.search(author=author_name, title=title, limit=2)
             if name_results:
                 results.extend(name_results)
+            
+            # If still no results, try with simplified author name (remove middle initial)
+            if not results and ' ' in author_name:
+                # Split name and check if we have what looks like a middle initial
+                name_parts = author_name.split()
+                if len(name_parts) > 2 and len(name_parts[1]) <= 2:
+                    simplified_name = f"{name_parts[0]} {name_parts[-1]}"
+                    logger.info("Trying search with simplified author name '%s'", simplified_name)
+                    simple_results = ol.Work.search(author=simplified_name, title=title, limit=2)
+                    if simple_results:
+                        results.extend(simple_results)
+                        
         except Exception as e:
             logger.warning("Error during author name search: %s", e)
 
