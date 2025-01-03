@@ -8,7 +8,7 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <!-- This is based off the Bootstrap AutoComplete Demo Bootstrap 4 from the Bootstrap Autocomplete github -->
+        <!-- This is based off the Bootstrap AutoComplete Demo Bootstrap 4 -->
 		<link rel="stylesheet" href="http://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
         <style type="text/css">
             label, h2, p, a, li {
@@ -17,7 +17,7 @@
             form {
                 border-style: double;
                 border-width: 5px;
-                min-width: 400px;
+                min-width: 300px;
             }
             input.basicAutoComplete {
                 min-width: 300px;
@@ -38,9 +38,19 @@
                 background-color: rgba(0, 0, 0, 0.05);
                 border-radius: 3px;
             }
+            /* Add styles for confirm book page */
+            .confirm-book-page {
+                padding: 5% !important;
+                max-width: 1100px;
+                margin: 0 auto;
+            }
+            /* Add new style to prevent form overflow */
+            .confirm-book-page .card {
+                margin: 0 auto;
+            }
         </style>
 	</head>
-<body style="background-image:url('{% static 'book/books.jpg' %}'); background-size:100%; padding-left: 20%; padding-right: 20%">
+<body style="background-image:url('{% static 'book/books.jpg' %}'); background-size:100%; padding-left: 10%; padding-right: 10%">
 
     <div style="background-image:url('{% static 'book/scroll.jpg' %}'); background-size: 100% 100%; padding:20%">
     {% block content %}{% endblock %}
@@ -67,26 +77,6 @@
     </nav>
     </div>
 
-    {% block script %}
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-        <script src="//stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/gh/xcash/bootstrap-autocomplete@v2.3.7/dist/latest/bootstrap-autocomplete.min.js"></script>
-        <!--<script>
-        $(document).ready(function(){
-                $('.basicAutoComplete').autoComplete(
-                    {minLength: 1}
-                );
-                $('.dropdown-menu').css({'top': 'auto', 'left': 'auto'})
-            })
-
-        </script>-->
-        <script>$(document).ready(function(){
-            $('.basicAutoComplete').autoComplete()
-            $('.dropdown-menu').css({'top': 'auto', 'left': 'auto'})
-        })
-        </script>
-
-        <!-- See https://stackoverflow.com/questions/50380769/how-to-create-a-autocomplete-input-field-in-a-form-using-django -->
-    {% endblock %}
+    {% block script %}{% endblock %}
 </body>
 </html>

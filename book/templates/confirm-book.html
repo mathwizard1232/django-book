@@ -1,251 +1,257 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Confirm Book Selection</h2>
+<div class="confirm-book-page">
+    <h2>Confirm Book Selection</h2>
 
-{% for form in forms %}
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">Option {{ forloop.counter }}</h5>
+    <div class="row g-4">
+        {% for form in forms %}
+        <div class="col-md-6">
+            <div class="card mb-4" style="min-width: 400px; max-width: 500px;">
+                <div class="card-header">
+                    <h5 class="mb-0">Option {{ forloop.counter }}</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/confirm-book.html" method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        
+                        <div class="location-hierarchy mb-3">
+                            <div class="form-group">
+                                <label for="location-{{ forloop.counter }}">Location</label>
+                                <select class="form-control location-select" id="location-{{ forloop.counter }}" name="location">
+                                    <option value="">Select Location...</option>
+                                    {% for location in locations %}
+                                        <option value="{{ location.id }}">{{ location.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group mt-2">
+                                <label for="room-{{ forloop.counter }}">Room</label>
+                                <select class="form-control" id="room-{{ forloop.counter }}" name="room" disabled>
+                                    <option value="">Select Room...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mt-2">
+                                <label for="bookcase-{{ forloop.counter }}">Bookcase</label>
+                                <select class="form-control" id="bookcase-{{ forloop.counter }}" name="bookcase" disabled>
+                                    <option value="">Select Bookcase...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mt-2">
+                                <label for="shelf-{{ forloop.counter }}">Shelf</label>
+                                <select class="form-control" id="shelf-{{ forloop.counter }}" name="shelf" disabled>
+                                    <option value="">Select Shelf...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="shelfNotesDisplay-{{ forloop.counter }}" class="mb-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <small id="shelfNotes-{{ forloop.counter }}"></small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
+                            <input type="submit" name="action" value="Confirm and Shelve" class="btn btn-primary shelve-button" id="shelveButton-{{ forloop.counter }}" disabled>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    <div class="card-body">
-        <form action="/confirm-book.html" method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            
-            <div class="location-hierarchy mb-3">
-                <div class="form-group">
-                    <label for="location-{{ forloop.counter }}">Location</label>
-                    <select class="form-control location-select" id="location-{{ forloop.counter }}" name="location">
-                        <option value="">Select Location...</option>
-                        {% for location in locations %}
-                            <option value="{{ location.id }}">{{ location.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
 
-                <div class="form-group mt-2">
-                    <label for="room-{{ forloop.counter }}">Room</label>
-                    <select class="form-control" id="room-{{ forloop.counter }}" name="room" disabled>
-                        <option value="">Select Room...</option>
-                    </select>
-                </div>
-
-                <div class="form-group mt-2">
-                    <label for="bookcase-{{ forloop.counter }}">Bookcase</label>
-                    <select class="form-control" id="bookcase-{{ forloop.counter }}" name="bookcase" disabled>
-                        <option value="">Select Bookcase...</option>
-                    </select>
-                </div>
-
-                <div class="form-group mt-2">
-                    <label for="shelf-{{ forloop.counter }}">Shelf</label>
-                    <select class="form-control" id="shelf-{{ forloop.counter }}" name="shelf" disabled>
-                        <option value="">Select Shelf...</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="shelfNotesDisplay-{{ forloop.counter }}" class="mb-3" style="display: none;">
-                <div class="alert alert-info">
-                    <small id="shelfNotes-{{ forloop.counter }}"></small>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2">
-                <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
-                <input type="submit" name="action" value="Confirm and Shelve" class="btn btn-primary shelve-button" id="shelveButton-{{ forloop.counter }}" disabled>
-            </div>
-        </form>
+    <div class="mt-3">
+        <a href="{{ title_url }}" class="btn btn-outline-secondary">Change title</a>
+        <a href="/author/" class="btn btn-outline-secondary">Change author</a>
     </div>
-</div>
-{% endfor %}
 
-<div class="mt-3">
-    <a href="{{ title_url }}" class="btn btn-outline-secondary">Change title</a>
-    <a href="/author/" class="btn btn-outline-secondary">Change author</a>
-</div>
+    <script>
+        // Store last used selections
+        let lastUsedBookcase = localStorage.getItem('lastUsedBookcase');
+        let lastUsedShelf = localStorage.getItem('lastUsedShelf');
 
-<script>
-    // Store last used selections
-    let lastUsedBookcase = localStorage.getItem('lastUsedBookcase');
-    let lastUsedShelf = localStorage.getItem('lastUsedShelf');
-
-    // Initialize all location selectors
-    document.querySelectorAll('.location-select').forEach((select, index) => {
-        const formIndex = index + 1;
-        
-        select.addEventListener('change', function() {
-            loadRooms(this.value, formIndex);
-        });
-
-        // Set up other select listeners
-        document.getElementById(`room-${formIndex}`).addEventListener('change', function() {
-            loadBookcases(this.value, formIndex);
-        });
-
-        document.getElementById(`bookcase-${formIndex}`).addEventListener('change', function() {
-            const bookcaseId = this.value;
-            loadShelves(bookcaseId, formIndex);
-            if (bookcaseId) {
-                localStorage.setItem('lastUsedBookcase', bookcaseId);
-            }
-        });
-
-        document.getElementById(`shelf-${formIndex}`).addEventListener('change', function() {
-            const shelfId = this.value;
-            if (shelfId) {
-                localStorage.setItem('lastUsedShelf', shelfId);
-                displayShelfNotes(shelfId, formIndex);
-            } else {
-                document.getElementById(`shelfNotesDisplay-${formIndex}`).style.display = 'none';
-            }
-            updateShelveButton(formIndex);
-        });
-
-        // Auto-select single location if it's the only option
-        if (select.options.length === 2) {
-            select.selectedIndex = 1;
-            loadRooms(select.value, formIndex);
-        }
-    });
-
-    function displayShelfNotes(shelfId, formIndex) {
-        const shelfSelect = document.getElementById(`shelf-${formIndex}`);
-        const selectedOption = Array.from(shelfSelect.options).find(opt => opt.value === shelfId);
-        if (!selectedOption) return;
-        
-        const notesDisplay = document.getElementById(`shelfNotesDisplay-${formIndex}`);
-        const notesText = document.getElementById(`shelfNotes-${formIndex}`);
-        
-        const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
-        if (shelf && shelf.notes) {
-            notesText.textContent = shelf.notes;
-            notesDisplay.style.display = 'block';
-        } else {
-            notesDisplay.style.display = 'none';
-        }
-    }
-
-    function loadRooms(locationId, formIndex) {
-        if (!locationId) {
-            disableSelect(`room-${formIndex}`);
-            return;
-        }
-        fetch(`/api/rooms/${locationId}`)
-            .then(response => response.json())
-            .then(rooms => {
-                updateSelect(`room-${formIndex}`, rooms);
-                const roomSelect = document.getElementById(`room-${formIndex}`);
-                if (roomSelect.options.length === 2) {
-                    roomSelect.selectedIndex = 1;
-                    loadBookcases(roomSelect.value, formIndex);
-                }
-            });
-    }
-    
-    function loadBookcases(roomId, formIndex) {
-        if (!roomId) {
-            disableSelect(`bookcase-${formIndex}`);
-            return;
-        }
-        fetch(`/api/bookcases/${roomId}`)
-            .then(response => response.json())
-            .then(bookcases => {
-                updateSelect(`bookcase-${formIndex}`, bookcases);
-                if (lastUsedBookcase) {
-                    const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
-                    for (let i = 0; i < bookcaseSelect.options.length; i++) {
-                        if (bookcaseSelect.options[i].value === lastUsedBookcase) {
-                            bookcaseSelect.selectedIndex = i;
-                            loadShelves(lastUsedBookcase, formIndex);
-                            break;
-                        }
-                    }
-                }
-            });
-    }
-    
-    function loadShelves(bookcaseId, formIndex) {
-        if (!bookcaseId) {
-            disableSelect(`shelf-${formIndex}`);
-            return;
-        }
-        fetch(`/api/shelves/${bookcaseId}`)
-            .then(response => response.json())
-            .then(shelves => {
-                updateSelect(`shelf-${formIndex}`, shelves);
-                if (lastUsedShelf) {
-                    const shelfSelect = document.getElementById(`shelf-${formIndex}`);
-                    for (let i = 0; i < shelfSelect.options.length; i++) {
-                        if (shelfSelect.options[i].value === lastUsedShelf) {
-                            shelfSelect.selectedIndex = i;
-                            displayShelfNotes(lastUsedShelf, formIndex);
-                            updateShelveButton(formIndex);
-                            break;
-                        }
-                    }
-                }
-            });
-    }
-    
-    function updateSelect(elementId, options) {
-        const select = document.getElementById(elementId);
-        select.disabled = false;
-        select.innerHTML = '<option value="">Select...</option>';
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.id;
-            option.textContent = opt.name;
-            option.shelf = opt;
-            select.appendChild(option);
-        });
-    }
-    
-    function disableSelect(elementId) {
-        const select = document.getElementById(elementId);
-        select.disabled = true;
-        select.innerHTML = '<option value="">Select...</option>';
-    }
-
-    function updateShelveButton(formIndex) {
-        const shelfSelect = document.getElementById(`shelf-${formIndex}`);
-        const hasSelectedShelf = shelfSelect.selectedIndex > 0;
-        document.getElementById(`shelveButton-${formIndex}`).disabled = !hasSelectedShelf;
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const forms = document.querySelectorAll('form');
-        forms.forEach((form, index) => {
+        // Initialize all location selectors
+        document.querySelectorAll('.location-select').forEach((select, index) => {
             const formIndex = index + 1;
             
-            // Add change event listeners for each select
-            const locationSelect = document.getElementById(`location-${formIndex}`);
-            const roomSelect = document.getElementById(`room-${formIndex}`);
-            const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
-            
-            if (locationSelect) {
-                locationSelect.addEventListener('change', function() {
-                    loadRooms(this.value, formIndex);
-                });
-            }
-            
-            if (roomSelect) {
-                roomSelect.addEventListener('change', function() {
-                    loadBookcases(this.value, formIndex);
-                });
-            }
-            
-            if (bookcaseSelect) {
-                bookcaseSelect.addEventListener('change', function() {
-                    loadShelves(this.value, formIndex);
-                    // Enable shelve button when a bookcase is selected
-                    const shelveButton = document.getElementById(`shelveButton-${formIndex}`);
-                    if (shelveButton) {
-                        shelveButton.disabled = false;
-                    }
-                });
+            select.addEventListener('change', function() {
+                loadRooms(this.value, formIndex);
+            });
+
+            // Set up other select listeners
+            document.getElementById(`room-${formIndex}`).addEventListener('change', function() {
+                loadBookcases(this.value, formIndex);
+            });
+
+            document.getElementById(`bookcase-${formIndex}`).addEventListener('change', function() {
+                const bookcaseId = this.value;
+                loadShelves(bookcaseId, formIndex);
+                if (bookcaseId) {
+                    localStorage.setItem('lastUsedBookcase', bookcaseId);
+                }
+            });
+
+            document.getElementById(`shelf-${formIndex}`).addEventListener('change', function() {
+                const shelfId = this.value;
+                if (shelfId) {
+                    localStorage.setItem('lastUsedShelf', shelfId);
+                    displayShelfNotes(shelfId, formIndex);
+                } else {
+                    document.getElementById(`shelfNotesDisplay-${formIndex}`).style.display = 'none';
+                }
+                updateShelveButton(formIndex);
+            });
+
+            // Auto-select single location if it's the only option
+            if (select.options.length === 2) {
+                select.selectedIndex = 1;
+                loadRooms(select.value, formIndex);
             }
         });
-    });
-</script>
+
+        function displayShelfNotes(shelfId, formIndex) {
+            const shelfSelect = document.getElementById(`shelf-${formIndex}`);
+            const selectedOption = Array.from(shelfSelect.options).find(opt => opt.value === shelfId);
+            if (!selectedOption) return;
+            
+            const notesDisplay = document.getElementById(`shelfNotesDisplay-${formIndex}`);
+            const notesText = document.getElementById(`shelfNotes-${formIndex}`);
+            
+            const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
+            if (shelf && shelf.notes) {
+                notesText.textContent = shelf.notes;
+                notesDisplay.style.display = 'block';
+            } else {
+                notesDisplay.style.display = 'none';
+            }
+        }
+
+        function loadRooms(locationId, formIndex) {
+            if (!locationId) {
+                disableSelect(`room-${formIndex}`);
+                return;
+            }
+            fetch(`/api/rooms/${locationId}`)
+                .then(response => response.json())
+                .then(rooms => {
+                    updateSelect(`room-${formIndex}`, rooms);
+                    const roomSelect = document.getElementById(`room-${formIndex}`);
+                    if (roomSelect.options.length === 2) {
+                        roomSelect.selectedIndex = 1;
+                        loadBookcases(roomSelect.value, formIndex);
+                    }
+                });
+        }
+        
+        function loadBookcases(roomId, formIndex) {
+            if (!roomId) {
+                disableSelect(`bookcase-${formIndex}`);
+                return;
+            }
+            fetch(`/api/bookcases/${roomId}`)
+                .then(response => response.json())
+                .then(bookcases => {
+                    updateSelect(`bookcase-${formIndex}`, bookcases);
+                    if (lastUsedBookcase) {
+                        const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
+                        for (let i = 0; i < bookcaseSelect.options.length; i++) {
+                            if (bookcaseSelect.options[i].value === lastUsedBookcase) {
+                                bookcaseSelect.selectedIndex = i;
+                                loadShelves(lastUsedBookcase, formIndex);
+                                break;
+                            }
+                        }
+                    }
+                });
+        }
+        
+        function loadShelves(bookcaseId, formIndex) {
+            if (!bookcaseId) {
+                disableSelect(`shelf-${formIndex}`);
+                return;
+            }
+            fetch(`/api/shelves/${bookcaseId}`)
+                .then(response => response.json())
+                .then(shelves => {
+                    updateSelect(`shelf-${formIndex}`, shelves);
+                    if (lastUsedShelf) {
+                        const shelfSelect = document.getElementById(`shelf-${formIndex}`);
+                        for (let i = 0; i < shelfSelect.options.length; i++) {
+                            if (shelfSelect.options[i].value === lastUsedShelf) {
+                                shelfSelect.selectedIndex = i;
+                                displayShelfNotes(lastUsedShelf, formIndex);
+                                updateShelveButton(formIndex);
+                                break;
+                            }
+                        }
+                    }
+                });
+        }
+        
+        function updateSelect(elementId, options) {
+            const select = document.getElementById(elementId);
+            select.disabled = false;
+            select.innerHTML = '<option value="">Select...</option>';
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.id;
+                option.textContent = opt.name;
+                option.shelf = opt;
+                select.appendChild(option);
+            });
+        }
+        
+        function disableSelect(elementId) {
+            const select = document.getElementById(elementId);
+            select.disabled = true;
+            select.innerHTML = '<option value="">Select...</option>';
+        }
+
+        function updateShelveButton(formIndex) {
+            const shelfSelect = document.getElementById(`shelf-${formIndex}`);
+            const hasSelectedShelf = shelfSelect.selectedIndex > 0;
+            document.getElementById(`shelveButton-${formIndex}`).disabled = !hasSelectedShelf;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach((form, index) => {
+                const formIndex = index + 1;
+                
+                // Add change event listeners for each select
+                const locationSelect = document.getElementById(`location-${formIndex}`);
+                const roomSelect = document.getElementById(`room-${formIndex}`);
+                const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
+                
+                if (locationSelect) {
+                    locationSelect.addEventListener('change', function() {
+                        loadRooms(this.value, formIndex);
+                    });
+                }
+                
+                if (roomSelect) {
+                    roomSelect.addEventListener('change', function() {
+                        loadBookcases(this.value, formIndex);
+                    });
+                }
+                
+                if (bookcaseSelect) {
+                    bookcaseSelect.addEventListener('change', function() {
+                        loadShelves(this.value, formIndex);
+                        // Enable shelve button when a bookcase is selected
+                        const shelveButton = document.getElementById(`shelveButton-${formIndex}`);
+                        if (shelveButton) {
+                            shelveButton.disabled = false;
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</div>
 {% endblock %}
