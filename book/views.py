@@ -144,9 +144,7 @@ def confirm_book(request):
         # TODO: real switching
         return HttpResponseRedirect('/author')
 
-    # This is the OpenLibrary lookup using author if given (by ID, hopefully) and title
-    # It gives the single closest match in its view
-    # With some hacking of the client, multiple results could be returned for alternate selections if needed
+    # Initial search with author ID if available
     logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author, search_title)
     try:
         results = ol.Work.search(author=author, title=search_title, limit=2)
@@ -161,49 +159,78 @@ def confirm_book(request):
         logger.exception("Error during OpenLibrary search")
         raise
 
-    if not results:
-        # try searching by author name if we have an author_olid
-        if author_olid:
-            try:
-                ol_author = ol.Author.get(author_olid)
-                logger.info("Trying search with author name '%s' instead of ID", ol_author.name)
-                results = ol.Work.search(author=ol_author.name, title=search_title, limit=2)
-                if results:
-                    logger.info("Found works by author name '%s' after ID search failed", ol_author.name)
-                logger.info("Results from name search: %s", results)
-            except Exception as e:
-                logger.warning("Failed to lookup author by ID %s: %s", author_olid, e)
-
-        # If still no result or no author_olid, try title-only search
-        if not results:
-            logger.info("Trying title-only search for '%s'", search_title)
-            results = ol.Work.search(title=search_title, limit=2)
-            logger.info("Results from title-only search: %s", results)
-            if not results:
-                # TODO: better handling
-                raise Exception("no result")
+    # If we only got one result or no results, try additional search strategies
+    if not results or not (hasattr(results, '__iter__') and not isinstance(results, (str, bytes))) or (hasattr(results, '__len__') and len(results) == 1):
+        additional_results = []
         
-    display_title = results[0].title
-    work_olid = results[0].identifiers['olid'][0]
-    publish_year = results[0].publish_date
-    publisher = results[0].publisher
+        # Try searching by author name if we have an author_olid
+        if author_olid and 'author_name' in params:
+            try:
+                # Use local Author model instead of OpenLibrary lookup
+                local_author = Author.objects.get(olid=author_olid)
+                logger.info("Trying search with author name '%s' instead of ID", local_author.primary_name)
+                name_results = ol.Work.search(author=local_author.primary_name, title=search_title, limit=2)
+                if name_results:
+                    logger.info("Found works by author name '%s' after ID search failed", local_author.primary_name)
+                    # Only add results that aren't duplicates of what we already have
+                    if results and hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
+                        existing_olid = results[0].identifiers['olid'][0]
+                        additional_results.extend([r for r in name_results 
+                                                if r.identifiers['olid'][0] != existing_olid])
+                    else:
+                        additional_results.extend(name_results)
+                logger.info("Results from name search: %s", name_results)
+            except Author.DoesNotExist:
+                logger.warning("Local author not found for ID %s - skipping name search", author_olid)
+            except Exception as e:
+                logger.warning("Error during author name search: %s", e)
 
-    # TODO: This selects the first author, but should display multiple authors, or at least prefer the specified author
-    author_name = results[0].authors[0]['name']
+        # If still no results, try title-only search
+        if not results and not additional_results:
+            logger.info("Trying title-only search for '%s'", search_title)
+            try:
+                title_results = ol.Work.search(title=search_title, limit=2)
+                logger.info("Results from title-only search: %s", title_results)
+                if title_results:
+                    additional_results.extend(title_results)
+            except Exception as e:
+                logger.warning("Error during title-only search: %s", e)
+                if not results and not additional_results:
+                    raise Exception("no result")
 
-    # This block is setting up the context and form to display the book
-    args['title'] = display_title
-    args['work_olid'] = work_olid
-    args['publisher'] = publisher
-    args['publish_year'] = publish_year
-    context['form'] = ConfirmBook(args)
-    context['author_name'] = author_name
+        # Combine original results with additional results, maintaining limit of 2
+        if hasattr(results, '__iter__') and not isinstance(results, (str, bytes)):
+            results.extend(additional_results)
+        else:
+            results = [results] if results else []
+            results.extend(additional_results)
+        results = results[:2]  # Keep only first two results
 
-    # Display confirmation form, or
+    # Continue with all results
+    forms = []
+    for result in results:
+        display_title = result.title
+        work_olid = result.identifiers['olid'][0]
+        publish_year = result.publish_date
+        publisher = result.publisher
+        author_name = result.authors[0]['name']
+
+        args = {
+            'title': display_title,
+            'work_olid': work_olid,
+            'publisher': publisher,
+            'publish_year': publish_year,
+            'author_name': author_name
+        }
+        if author_olid:
+            args['author_olid'] = author_olid
+        forms.append(ConfirmBook(args))
+
+    # Display confirmation form(s)
     if request.method == 'GET':
         # Add locations to context for the template
         context['locations'] = Location.objects.all()
-        context['forms'] = [context.pop('form')]  # Convert single form to list
+        context['forms'] = forms
         logger.info("Rendering confirm-book.html with context: %s", context)
         return render(request, 'confirm-book.html', context)
     # Process confirmation and direct to next step

@@ -73,6 +73,8 @@ class CachedOpenLibrary(OpenLibrary):
                 try:
                     response = ol_instance._make_request(url)
                     data = response.json()
+                    logger.info("Raw OpenLibrary response: num_found=%s, docs=%s", 
+                              data.get('num_found'), len(data.get('docs', [])))
                     if not data.get('docs'):
                         return []
                     
