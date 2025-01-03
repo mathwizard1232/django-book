@@ -233,7 +233,8 @@ def confirm_book(request):
         copy = Copy.objects.create(**copy_data)
         context['copy'] = copy
 
-        return render(request, 'just-entered-book.html', context)
+        #return render(request, 'just-entered-book.html', context)
+        return HttpResponseRedirect('/author/')
 
 def author_autocomplete(request):
     """ Return a list of autocomplete suggestions for authors """
