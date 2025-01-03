@@ -12,48 +12,42 @@
             {% csrf_token %}
             {{ form.as_p }}
             
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="mb-0">Assign Location (Optional)</h5>
+            <div class="location-hierarchy mb-3">
+                <div class="form-group">
+                    <label for="location-{{ forloop.counter }}">Location</label>
+                    <select class="form-control" id="location-{{ forloop.counter }}" name="location">
+                        <option value="">Select Location...</option>
+                        {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="card-body">
-                    <!-- Location selection -->
-                    <div class="mb-3">
-                        <label for="location-{{ forloop.counter }}" class="form-label">Building/Location</label>
-                        <select class="form-select location-select" id="location-{{ forloop.counter }}" name="location">
-                            <option value="">Select location...</option>
-                            {% for location in locations %}
-                                <option value="{{ location.id }}">{{ location.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="room-{{ forloop.counter }}" class="form-label">Room</label>
-                        <select class="form-select" id="room-{{ forloop.counter }}" name="room" disabled>
-                            <option value="">Select room...</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="bookcase-{{ forloop.counter }}" class="form-label">Bookcase</label>
-                        <select class="form-select" id="bookcase-{{ forloop.counter }}" name="bookcase" disabled>
-                            <option value="">Select bookcase...</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="shelf-{{ forloop.counter }}" class="form-label">Shelf</label>
-                        <select class="form-select" id="shelf-{{ forloop.counter }}" name="shelf" disabled>
-                            <option value="">Select shelf...</option>
-                        </select>
-                    </div>
 
-                    <div id="shelfNotesDisplay-{{ forloop.counter }}" class="mb-3" style="display: none;">
-                        <div class="alert alert-info">
-                            <small id="shelfNotes-{{ forloop.counter }}"></small>
-                        </div>
-                    </div>
+                <div class="form-group mt-2">
+                    <label for="room-{{ forloop.counter }}">Room</label>
+                    <select class="form-control" id="room-{{ forloop.counter }}" name="room" disabled>
+                        <option value="">Select Room...</option>
+                    </select>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label for="bookcase-{{ forloop.counter }}">Bookcase</label>
+                    <select class="form-control" id="bookcase-{{ forloop.counter }}" name="bookcase" disabled>
+                        <option value="">Select Bookcase...</option>
+                    </select>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label for="shelf-{{ forloop.counter }}">Shelf</label>
+                    <select class="form-control" id="shelf-{{ forloop.counter }}" name="shelf" disabled>
+                        <option value="">Select Shelf...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="shelfNotesDisplay-{{ forloop.counter }}" class="mb-3" style="display: none;">
+                <div class="alert alert-info">
+                    <small id="shelfNotes-{{ forloop.counter }}"></small>
                 </div>
             </div>
 
@@ -218,5 +212,40 @@
         const hasSelectedShelf = shelfSelect.selectedIndex > 0;
         document.getElementById(`shelveButton-${formIndex}`).disabled = !hasSelectedShelf;
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach((form, index) => {
+            const formIndex = index + 1;
+            
+            // Add change event listeners for each select
+            const locationSelect = document.getElementById(`location-${formIndex}`);
+            const roomSelect = document.getElementById(`room-${formIndex}`);
+            const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
+            
+            if (locationSelect) {
+                locationSelect.addEventListener('change', function() {
+                    loadRooms(this.value, formIndex);
+                });
+            }
+            
+            if (roomSelect) {
+                roomSelect.addEventListener('change', function() {
+                    loadBookcases(this.value, formIndex);
+                });
+            }
+            
+            if (bookcaseSelect) {
+                bookcaseSelect.addEventListener('change', function() {
+                    loadShelves(this.value, formIndex);
+                    // Enable shelve button when a bookcase is selected
+                    const shelveButton = document.getElementById(`shelveButton-${formIndex}`);
+                    if (shelveButton) {
+                        shelveButton.disabled = false;
+                    }
+                });
+            }
+        });
+    });
 </script>
 {% endblock %}
