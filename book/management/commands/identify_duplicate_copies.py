@@ -14,19 +14,30 @@ class Command(BaseCommand):
             action='store_true',
             help='Show what would be done without making changes',
         )
+        parser.add_argument(
+            '--include-shelved',
+            action='store_true',
+            help='Include shelved copies in duplicate detection',
+        )
 
     def handle(self, *args, **options):
-        # Find unshelved copies grouped by Work
-        unshelved_copies = Copy.objects.filter(
+        # Get all copies or just unshelved ones based on flag
+        copies_query = Copy.objects.all() if options['include_shelved'] else Copy.objects.filter(
             shelf__isnull=True,
             box__isnull=True
-        ).select_related(
-            'edition__work'
+        )
+        
+        copies = copies_query.select_related(
+            'edition__work',
+            'location',
+            'room',
+            'bookcase',
+            'shelf'
         )
 
         # Group by Work
         work_groups = {}
-        for copy in unshelved_copies:
+        for copy in copies:
             work = copy.edition.work
             if work.id not in work_groups:
                 work_groups[work.id] = []
@@ -42,14 +53,16 @@ class Command(BaseCommand):
             self.stdout.write('No potential duplicate copies found')
             return
 
-        self.stdout.write(f'Found {len(duplicate_groups)} works with multiple unshelved copies:')
+        self.stdout.write(f'Found {len(duplicate_groups)} works with multiple copies:')
         
         for work_id, copies in duplicate_groups.items():
             work = copies[0].edition.work
-            self.stdout.write(f'\nWork: "{work.title}" has {len(copies)} unshelved copies:')
+            self.stdout.write(f'\nWork: "{work.title}" has {len(copies)} copies:')
             for copy in copies:
+                location_str = self._get_location_string(copy)
                 self.stdout.write(
                     f'  Copy ID: {copy.id}, '
+                    f'Location: {location_str}, '
                     f'Added: {copy.acquisition_date or "Unknown"}, '
                     f'Condition: {copy.condition}'
                 )
@@ -57,31 +70,31 @@ class Command(BaseCommand):
             if not options['dry_run']:
                 self._prompt_for_merge(copies)
 
+    def _get_location_string(self, copy):
+        """Generate a human-readable location string for a copy"""
+        if copy.shelf:
+            return f"{copy.bookcase.name} > Shelf {copy.shelf.position}"
+        if copy.bookcase:
+            return f"{copy.bookcase.name}"
+        if copy.room:
+            return f"{copy.room.name}"
+        if copy.location:
+            return f"{copy.location.name}"
+        return "Unassigned"
+
     def _prompt_for_merge(self, copies):
+        """Interactive prompt to handle duplicate copies"""
         while True:
-            self.stdout.write('\nOptions:')
-            self.stdout.write('  [k] Keep all copies (they are different physical books)')
-            self.stdout.write('  [m] Merge copies (they are the same physical book)')
-            self.stdout.write('  [s] Skip this group')
-            
-            choice = input('Choose action: ').lower()
-            
-            if choice == 'k':
-                self.stdout.write('Keeping all copies')
+            response = input('\nMerge these copies? (y/n/q): ').lower()
+            if response == 'q':
+                return
+            if response in ('y', 'n'):
                 break
-            elif choice == 'm':
-                # Keep the oldest copy (by ID if no acquisition date)
-                primary_copy = sorted(
-                    copies,
-                    key=lambda c: (c.acquisition_date or '9999-12-31', c.id)
-                )[0]
-                
-                for copy in copies:
-                    if copy.id != primary_copy.id:
-                        copy.delete()
-                
-                self.stdout.write(f'Merged copies, keeping Copy ID: {primary_copy.id}')
-                break
-            elif choice == 's':
-                self.stdout.write('Skipped')
-                break
+
+        if response == 'y':
+            # Keep the first copy, delete others
+            primary_copy = copies[0]
+            for copy in copies[1:]:
+                self.stdout.write(f'Deleting copy {copy.id}...')
+                copy.delete()
+            self.stdout.write(self.style.SUCCESS('Copies merged successfully'))

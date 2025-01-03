@@ -1,15 +1,79 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Authors:</h2>
-<ul>
-{% for author in authors %}
-  <li>{{ author.primary_name }}</li>
-{% endfor %}
-</ul>
-<h2>Works:</h2>
-<ul>
-{% for work in works %}
-  <li>{{ work.title }} by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>
-{% endfor %}
-</ul>
+<div class="container">
+    <h2>Library Contents</h2>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Authors</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                    {% for author in authors %}
+                        <li>{{ author.primary_name }}</li>
+                    {% empty %}
+                        <li>No authors in library</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <h3>Works by Location</h3>
+            
+            {% for location, works_by_bookcase in works_by_location.items %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4 class="card-title mb-0">{{ location }}</h4>
+                    </div>
+                    <div class="card-body">
+                        {% for bookcase, works_by_shelf in works_by_bookcase.items %}
+                            <div class="ms-3 mb-3">
+                                <h5>{{ bookcase }}</h5>
+                                {% for shelf, works in works_by_shelf.items %}
+                                    <div class="ms-3 mb-2">
+                                        <h6>Shelf {{ shelf }}</h6>
+                                        <ul class="list-unstyled ms-3">
+                                        {% for work in works %}
+                                            <li>{{ work.title }} by 
+                                                {% for author in work.authors.all %}
+                                                    {{ author.primary_name }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </li>
+                                        {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            {% if unassigned_works %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4 class="card-title mb-0">Unassigned Works</h4>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                        {% for work in unassigned_works %}
+                            <li>{{ work.title }} by 
+                                {% for author in work.authors.all %}
+                                    {{ author.primary_name }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
