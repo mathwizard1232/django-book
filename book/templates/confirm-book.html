@@ -15,7 +15,7 @@
             <div class="location-hierarchy mb-3">
                 <div class="form-group">
                     <label for="location-{{ forloop.counter }}">Location</label>
-                    <select class="form-control" id="location-{{ forloop.counter }}" name="location">
+                    <select class="form-control location-select" id="location-{{ forloop.counter }}" name="location">
                         <option value="">Select Location...</option>
                         {% for location in locations %}
                             <option value="{{ location.id }}">{{ location.name }}</option>

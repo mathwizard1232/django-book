@@ -203,6 +203,8 @@ def confirm_book(request):
     if request.method == 'GET':
         # Add locations to context for the template
         context['locations'] = Location.objects.all()
+        context['forms'] = [context.pop('form')]  # Convert single form to list
+        logger.info("Rendering confirm-book.html with context: %s", context)
         return render(request, 'confirm-book.html', context)
     # Process confirmation and direct to next step
     elif request.method == 'POST':
