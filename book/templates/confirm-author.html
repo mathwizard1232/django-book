@@ -1,19 +1,120 @@
 {% extends "base.html" %}
 {% block content %}
-<form action="/confirm-author.html" method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit" value="Confirm primary author result" autofocus>
-</form>
+<div class="container">
+    <h2>Confirm Author Selection</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Primary Match</h3>
+        </div>
+        <div class="card-body">
+            <form action="/confirm-author.html" method="post">
+                {% csrf_token %}
+                
+                <!-- Author Name -->
+                <div class="form-group">
+                    <label for="id_author_name">Author Name</label>
+                    {{ form.author_name }}
+                </div>
 
-{% if form2 %}
-<br>
-<form action="/confirm-author.html" method="post">
-    {% csrf_token %}
-    {{ form2.as_p }}
-    <input type="submit" value="Select alternate suggestion">
-</form>
-{% endif %}
+                <!-- Biography (if available) -->
+                {% if form.bio %}
+                <div class="form-group mt-3">
+                    <label for="id_bio">Biography</label>
+                    {{ form.bio }}
+                </div>
+                {% endif %}
 
-<a href="/author/">Change author</a>
+                <!-- Hidden Fields -->
+                {{ form.author_olid }}
+                {{ form.search_name }}
+                
+                <div class="text-center mt-3">
+                    <input type="submit" value="Confirm primary author result" class="btn btn-primary" autofocus>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if form2 %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Alternate Match</h3>
+        </div>
+        <div class="card-body">
+            <form action="/confirm-author.html" method="post">
+                {% csrf_token %}
+                
+                <!-- Author Name -->
+                <div class="form-group">
+                    <label for="id_author_name">Author Name</label>
+                    {{ form2.author_name }}
+                </div>
+
+                <!-- Biography (if available) -->
+                {% if form2.bio %}
+                <div class="form-group mt-3">
+                    <label for="id_bio">Biography</label>
+                    {{ form2.bio }}
+                </div>
+                {% endif %}
+
+                <!-- Hidden Fields -->
+                {{ form2.author_olid }}
+                {{ form2.search_name }}
+                
+                <div class="text-center mt-3">
+                    <input type="submit" value="Select alternate suggestion" class="btn btn-secondary">
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-center">
+        <a href="/author/" class="btn btn-outline-primary">Change author search</a>
+    </div>
+</div>
+
+<style>
+    /* Override the base template's form styling for this page */
+    form {
+        border-style: none;
+        min-width: auto;
+    }
+    
+    /* Style readonly inputs to look more like text */
+    input[readonly] {
+        background-color: transparent !important;
+        border: none;
+        padding: 0;
+    }
+    
+    /* Style the bio textarea */
+    textarea[readonly] {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6;
+        padding: 0.5rem;
+        min-height: 150px;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+    
+    /* Hide labels for hidden fields */
+    label[for="id_author_olid"],
+    label[for="id_search_name"] {
+        display: none;
+    }
+    
+    /* Style the author name more prominently */
+    label[for="id_author_name"] {
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+    
+    /* Add some spacing between form elements */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+</style>
 {% endblock %}

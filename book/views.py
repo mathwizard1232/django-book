@@ -46,7 +46,11 @@ def confirm_author(request):
             return HttpResponseRedirect('/author')  # If we get a bad request, just have them try again
         first_author = results[0]
         first_olid = first_author['key'][9:]  # remove "/authors/" prefix
-        bio = ol.Author.get(first_olid).bio
+        first_author_full = ol.Author.get(first_olid)
+        logger.info("First author full details: %s", vars(first_author_full))
+        bio = first_author_full.bio
+        
+        logger.info("Author bio for %s: %s", first_author['name'], bio if bio else "No biography available")
         
         form = ConfirmAuthorForm({'author_olid' :first_olid, 'author_name': first_author['name'], 'search_name': name})
 
@@ -57,7 +61,9 @@ def confirm_author(request):
             # NOTE: adding this because sometimes even with full name first result is wrong
             second_author = results[1]
             second_olid = second_author['key'][9:]
-            second_bio = ol.Author.get(second_olid).bio
+            second_author_full = ol.Author.get(second_olid)
+            logger.info("Second author full details: %s", vars(second_author_full))
+            second_bio = second_author_full.bio
             form2 = ConfirmAuthorForm({'author_olid': second_olid, 'author_name': second_author['name'], 'search_name': name})
             if second_bio:
                 form2 = ConfirmAuthorFormWithBio({'author_olid': second_olid, 'author_name': second_author['name'], 'search_name': name, 'bio': second_bio})
