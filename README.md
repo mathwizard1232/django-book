@@ -34,6 +34,7 @@ LibraCents helps you manage your personal library with a focus on both organizat
 ### Installation
 ```bash
 pip install git+https://github.com/internetarchive/openlibrary-client.git
+pip install git+https://github.com/mathwizard1232/openlibrary-client-2.git
 pip install django
 python3 manage.py migrate
 ```
