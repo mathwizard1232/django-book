@@ -119,6 +119,14 @@ def confirm_book(request):
 
 def _handle_book_confirmation(request):
     """Process the confirmed book selection and create local records"""
+    # Add logging at the start
+    logger.info("Processing book confirmation with POST data:")
+    logger.info("is_multivolume: %s", request.POST.get('is_multivolume'))
+    logger.info("entry_type: %s", request.POST.get('entry_type'))
+    logger.info("volume_number: %s", request.POST.get('volume_number'))
+    logger.info("volume_count: %s", request.POST.get('volume_count'))
+    logger.info("display_title: %s", request.POST.get('title'))
+    
     action = request.POST.get('action', 'Confirm Without Shelving')
     
     # Get the work_olid from the POST data
@@ -128,6 +136,8 @@ def _handle_book_confirmation(request):
         
     # Get other required fields from POST
     display_title = request.POST.get('title')
+    # Strip any volume number from the title
+    clean_title = Work.strip_volume_number(display_title)
     author_olid = request.POST.get('author_olid')
     publisher = request.POST.get('publisher')
     search_title = request.POST.get('title', display_title)
@@ -143,7 +153,7 @@ def _handle_book_confirmation(request):
         author = Author.objects.get(olid=author_olid)
         if entry_type == 'SINGLE':
             parent_work, volume_work = Work.create_single_volume(
-                set_title=display_title,
+                set_title=clean_title,
                 volume_number=int(volume_number),
                 authors=author,
                 olid=work_olid,
@@ -159,7 +169,7 @@ def _handle_book_confirmation(request):
             if not volume_count:
                 return HttpResponseBadRequest('volume_count required for COMPLETE set')
             parent_work, volume_works = Work.create_volume_set(
-                title=display_title,
+                title=clean_title,
                 authors=author,
                 volume_count=int(volume_count),
                 olid=work_olid,
@@ -193,7 +203,7 @@ def _handle_book_confirmation(request):
             if not volume_count or not volume_number:
                 return HttpResponseBadRequest('volume_count and volume_number required for PARTIAL set')
             parent_work, volume_works = Work.create_partial_volume_set(
-                title=display_title,
+                title=clean_title,
                 authors=author,
                 volume_numbers=[int(volume_number)],
                 olid=work_olid,
@@ -209,12 +219,12 @@ def _handle_book_confirmation(request):
         if not work_qs:
             work = Work.objects.create(
                 olid=work_olid,
-                title=display_title,
+                title=clean_title,
                 search_name=search_title,
                 type='NOVEL',
             )
             work.authors.add(Author.objects.get(olid=author_olid))
-            logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
+            logger.info("Added new Work %s (%s) AKA %s", clean_title, work_olid, search_title)
         else:
             work = work_qs[0]
 

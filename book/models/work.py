@@ -1,5 +1,9 @@
 from django.db import models
 from book.models.author import Author
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 
 class Work(models.Model):
     """
@@ -139,14 +143,23 @@ class Work(models.Model):
         return parent_work, volume_works
 
     @classmethod
-    def create_single_volume(cls, set_title: str, volume_number: int, authors, **kwargs) -> tuple['Work', 'Work']:
-        """Creates or finds a multi-volume Work set and adds a single volume."""
-        # Try to find existing set, but don't include volume number in search
+    def create_single_volume(cls, set_title: str, volume_number: int, authors, **kwargs):
+        logger.info("Creating single volume with:")
+        logger.info("set_title: %s", set_title)
+        logger.info("volume_number: %s", volume_number)
+        logger.info("kwargs: %s", kwargs)
+        
+        # Try to find existing set
         parent_work = cls.objects.filter(
             title=set_title,
             is_multivolume=True,
-            volume_number__isnull=True  # Ensure we don't match a volume
+            volume_number__isnull=True
         ).first()
+        
+        if parent_work:
+            logger.info("Found existing parent work: %s (ID: %s)", parent_work.title, parent_work.id)
+        else:
+            logger.info("Creating new parent work")
         
         # Create parent if it doesn't exist
         if not parent_work:
@@ -172,6 +185,13 @@ class Work(models.Model):
         parent_work.component_works.add(volume)
         
         return parent_work, volume
+
+    @classmethod
+    def strip_volume_number(cls, title: str) -> str:
+        """Remove volume number from title if present"""
+        # Match ", Volume X" or "Volume X" at the end of the string
+        volume_pattern = r',?\s*Volume\s+\d+\s*$'
+        return re.sub(volume_pattern, '', title).strip()
 
 """
 # Create a complete 5-volume set
