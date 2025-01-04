@@ -56,3 +56,145 @@ class Work(models.Model):
         if self.volume_number:
             return f"{base} (Volume {self.volume_number})"
         return base
+
+    @classmethod
+    def create_volume_set(cls, title: str, authors, volume_count: int, **kwargs) -> tuple['Work', list['Work']]:
+        """
+        Creates a multi-volume Work set with the specified number of volumes.
+        
+        Args:
+            title: The title of the complete set
+            authors: Author or list of authors
+            volume_count: Number of volumes in the complete set
+            **kwargs: Additional Work fields (type, original_publication_date, etc.)
+        
+        Returns:
+            Tuple of (parent_work, list_of_volume_works)
+        """
+        # Create parent Work
+        parent_work = cls.objects.create(
+            title=title,
+            is_multivolume=True,
+            **kwargs
+        )
+        
+        # Add authors
+        if not isinstance(authors, (list, tuple)):
+            authors = [authors]
+        parent_work.authors.set(authors)
+        
+        # Create individual volumes
+        volume_works = []
+        for vol_num in range(1, volume_count + 1):
+            volume = cls.objects.create(
+                title=f"{title}, Volume {vol_num}",
+                is_multivolume=False,
+                volume_number=vol_num,
+                type=kwargs.get('type', 'NOVEL'),  # Inherit type from parent
+                original_publication_date=kwargs.get('original_publication_date')
+            )
+            volume.authors.set(authors)
+            parent_work.component_works.add(volume)
+            volume_works.append(volume)
+        
+        return parent_work, volume_works
+
+    @classmethod
+    def create_partial_volume_set(cls, title: str, authors, volume_numbers: list[int], **kwargs) -> tuple['Work', list['Work']]:
+        """
+        Creates a multi-volume Work set with only specified volumes.
+        
+        Args:
+            title: The title of the complete set
+            authors: Author or list of authors
+            volume_numbers: List of volume numbers to create
+            **kwargs: Additional Work fields
+        
+        Returns:
+            Tuple of (parent_work, list_of_created_volume_works)
+        """
+        parent_work = cls.objects.create(
+            title=title,
+            is_multivolume=True,
+            **kwargs
+        )
+        
+        if not isinstance(authors, (list, tuple)):
+            authors = [authors]
+        parent_work.authors.set(authors)
+        
+        volume_works = []
+        for vol_num in sorted(volume_numbers):
+            volume = cls.objects.create(
+                title=f"{title}, Volume {vol_num}",
+                is_multivolume=False,
+                volume_number=vol_num,
+                type=kwargs.get('type', 'NOVEL'),
+                original_publication_date=kwargs.get('original_publication_date')
+            )
+            volume.authors.set(authors)
+            parent_work.component_works.add(volume)
+            volume_works.append(volume)
+        
+        return parent_work, volume_works
+
+    @classmethod
+    def create_single_volume(cls, set_title: str, volume_number: int, authors, **kwargs) -> tuple['Work', 'Work']:
+        """Creates or finds a multi-volume Work set and adds a single volume."""
+        # Try to find existing set, but don't include volume number in search
+        parent_work = cls.objects.filter(
+            title=set_title,
+            is_multivolume=True,
+            volume_number__isnull=True  # Ensure we don't match a volume
+        ).first()
+        
+        # Create parent if it doesn't exist
+        if not parent_work:
+            parent_work = cls.objects.create(
+                title=set_title,
+                is_multivolume=True,
+                volume_number=None,  # Explicitly set to None
+                **{k:v for k,v in kwargs.items() if k != 'volume_number'}  # Remove volume_number from kwargs
+            )
+            if not isinstance(authors, (list, tuple)):
+                authors = [authors]
+            parent_work.authors.set(authors)
+        
+        # Create the single volume
+        volume = cls.objects.create(
+            title=set_title,  # Base title only, volume number handled by __str__
+            is_multivolume=False,
+            volume_number=volume_number,
+            type=kwargs.get('type', 'NOVEL'),
+            original_publication_date=kwargs.get('original_publication_date')
+        )
+        volume.authors.set(authors)
+        parent_work.component_works.add(volume)
+        
+        return parent_work, volume
+
+"""
+# Create a complete 5-volume set
+parent, volumes = Work.create_volume_set(
+    title="The Collected Short Stories of Louis L'Amour",
+    authors=author,
+    volume_count=5,
+    type='COLLECTION'
+)
+
+# Create just volume 5
+parent, volume5 = Work.create_single_volume(
+    set_title="The Collected Short Stories of Louis L'Amour",
+    volume_number=5,
+    authors=author,
+    type='COLLECTION'
+)
+
+# Create volumes 1, 3, and 5
+parent, volumes = Work.create_partial_volume_set(
+    title="The Collected Short Stories of Louis L'Amour",
+    authors=author,
+    volume_numbers=[1, 3, 5],
+    type='COLLECTION'
+)
+"""

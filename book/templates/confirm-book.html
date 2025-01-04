@@ -15,6 +15,37 @@
                         {% csrf_token %}
                         {{ form.as_p }}
                         
+                        <div class="multivolume-section mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="is_multivolume-{{ forloop.counter }}" 
+                                       name="is_multivolume" onchange="toggleMultiVolumeFields(this)">
+                                <label class="form-check-label" for="is_multivolume-{{ forloop.counter }}">
+                                    This is part of a multi-volume set
+                                </label>
+                            </div>
+                            
+                            <div id="multivolume_options-{{ forloop.counter }}" style="display: none;">
+                                <div class="form-group mt-2">
+                                    <label>Entry Type:</label>
+                                    <select name="entry_type" class="form-control" onchange="updateVolumeFields(this)">
+                                        <option value="SINGLE">Single Volume</option>
+                                        <option value="COMPLETE">Complete Set</option>
+                                        <option value="PARTIAL">Partial Set</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="volume_count_field-{{ forloop.counter }}" class="form-group mt-2" style="display: none;">
+                                    <label>Total Volumes in Set:</label>
+                                    <input type="number" name="volume_count" class="form-control">
+                                </div>
+                                
+                                <div id="volume_number_field-{{ forloop.counter }}" class="form-group mt-2">
+                                    <label>Volume Number:</label>
+                                    <input type="number" name="volume_number" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="location-hierarchy mb-3">
                             <div class="form-group">
                                 <label for="location-{{ forloop.counter }}">Location</label>
@@ -252,6 +283,35 @@
                 }
             });
         });
+
+        function toggleMultiVolumeFields(checkbox) {
+            const formIndex = checkbox.id.split('-').pop();
+            const optionsDiv = document.getElementById(`multivolume_options-${formIndex}`);
+            optionsDiv.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        function updateVolumeFields(select) {
+            const formIndex = select.closest('form')
+                .querySelector('[id^="multivolume_options-"]')
+                .id.split('-').pop();
+            const volumeCountField = document.getElementById(`volume_count_field-${formIndex}`);
+            const volumeNumberField = document.getElementById(`volume_number_field-${formIndex}`);
+            
+            switch(select.value) {
+                case 'COMPLETE':
+                    volumeCountField.style.display = 'block';
+                    volumeNumberField.style.display = 'none';
+                    break;
+                case 'SINGLE':
+                    volumeCountField.style.display = 'none';
+                    volumeNumberField.style.display = 'block';
+                    break;
+                case 'PARTIAL':
+                    volumeCountField.style.display = 'block';
+                    volumeNumberField.style.display = 'block';
+                    break;
+            }
+        }
     </script>
 </div>
 {% endblock %}

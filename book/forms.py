@@ -46,17 +46,22 @@ class TitleGivenAuthorForm(forms.Form):
 
 class ConfirmBook(forms.Form):
     """ Confirm a given book is the desired selection """
-    title = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    author_name = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    publisher = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    publish_year = forms.IntegerField(widget=forms.TextInput(attrs={'readonly': True}))
-    author_olid = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    work_olid = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
+    title = forms.CharField(max_length=100)
+    work_olid = forms.CharField(max_length=100)
+    author_olid = forms.CharField(required=False)
+    author_name = forms.CharField(required=False)
+    publisher = forms.CharField(required=False)
+    publish_year = forms.CharField(required=False)
+    
+    # Multi-volume fields
+    is_multivolume = forms.BooleanField(required=False)
+    volume_count = forms.IntegerField(required=False)
+    volume_number = forms.IntegerField(required=False)
+    entry_type = forms.ChoiceField(choices=[
+        ('SINGLE', 'Single Volume'),
+        ('COMPLETE', 'Complete Set'),
+        ('PARTIAL', 'Partial Set')
+    ], required=False)
     
 class LocationForm(forms.Form):
     name = forms.CharField(max_length=100,

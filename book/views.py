@@ -130,33 +130,105 @@ def _handle_book_confirmation(request):
     display_title = request.POST.get('title')
     author_olid = request.POST.get('author_olid')
     publisher = request.POST.get('publisher')
-    search_title = request.POST.get('title', display_title)  # Fall back to display_title if search_title not available
-
-    # If we don't have a record of this Work yet, record it now.
-    work_qs = Work.objects.filter(olid=work_olid)
-    if not work_qs:
-        work = Work.objects.create(
-            olid=work_olid,
-            title=display_title,
-            search_name=search_title,
-            type='NOVEL',  # Default type, could be made configurable
-        )
-        work.authors.add(Author.objects.get(olid=author_olid))
-        logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
+    search_title = request.POST.get('title', display_title)
+    
+    # Handle multi-volume works
+    is_multivolume = request.POST.get('is_multivolume') == 'on'
+    entry_type = request.POST.get('entry_type')
+    volume_number = request.POST.get('volume_number')
+    volume_count = request.POST.get('volume_count')
+    
+    # Get or create the work(s)
+    if is_multivolume:
+        author = Author.objects.get(olid=author_olid)
+        if entry_type == 'SINGLE':
+            parent_work, volume_work = Work.create_single_volume(
+                set_title=display_title,
+                volume_number=int(volume_number),
+                authors=author,
+                olid=work_olid,
+                search_name=search_title,
+                type='COLLECTION'
+            )
+            # Only create edition/copy for the volume work
+            work = volume_work
+            
+            # Don't create edition/copy for parent_work
+            
+        elif entry_type == 'COMPLETE':
+            if not volume_count:
+                return HttpResponseBadRequest('volume_count required for COMPLETE set')
+            parent_work, volume_works = Work.create_volume_set(
+                title=display_title,
+                authors=author,
+                volume_count=int(volume_count),
+                olid=work_olid,
+                search_name=search_title,
+                type='COLLECTION'
+            )
+            # Create editions and copies for all volumes
+            for volume_work in volume_works:
+                edition = Edition.objects.create(
+                    work=volume_work,
+                    publisher=publisher if publisher else "Unknown",
+                    format="PAPERBACK",
+                )
+                copy_data = {
+                    'edition': edition,
+                    'condition': "GOOD",
+                }
+                if action == 'Confirm and Shelve':
+                    shelf_id = request.POST.get('shelf')
+                    if shelf_id:
+                        shelf = Shelf.objects.get(id=shelf_id)
+                        copy_data.update({
+                            'shelf': shelf,
+                            'location': shelf.bookcase.get_location(),
+                            'room': shelf.bookcase.room,
+                            'bookcase': shelf.bookcase
+                        })
+                Copy.objects.create(**copy_data)
+            return HttpResponseRedirect('/author/')
+        elif entry_type == 'PARTIAL':
+            if not volume_count or not volume_number:
+                return HttpResponseBadRequest('volume_count and volume_number required for PARTIAL set')
+            parent_work, volume_works = Work.create_partial_volume_set(
+                title=display_title,
+                authors=author,
+                volume_numbers=[int(volume_number)],
+                olid=work_olid,
+                search_name=search_title,
+                type='COLLECTION'
+            )
+            work = volume_works[0]  # Use the first (only) volume for edition/copy creation
+        else:
+            return HttpResponseBadRequest('Invalid entry_type')
     else:
-        work = work_qs[0]
+        # Handle non-multivolume work as before
+        work_qs = Work.objects.filter(olid=work_olid)
+        if not work_qs:
+            work = Work.objects.create(
+                olid=work_olid,
+                title=display_title,
+                search_name=search_title,
+                type='NOVEL',
+            )
+            work.authors.add(Author.objects.get(olid=author_olid))
+            logger.info("Added new Work %s (%s) AKA %s", display_title, work_olid, search_title)
+        else:
+            work = work_qs[0]
 
     # Create a default Edition
     edition = Edition.objects.create(
         work=work,
         publisher=publisher if publisher else "Unknown",
-        format="PAPERBACK",   # Default format
+        format="PAPERBACK",
     )
 
     # Create a Copy with optional shelf assignment
     copy_data = {
         'edition': edition,
-        'condition': "GOOD",  # Default condition
+        'condition': "GOOD",
     }
 
     if action == 'Confirm and Shelve':
