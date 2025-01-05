@@ -427,7 +427,9 @@ def list(request):
     )
     
     # Get works and organize by location hierarchy
-    works = Work.objects.all().prefetch_related(
+    works = Work.objects.filter(
+        is_multivolume=False  # Only include individual volumes, not parent sets
+    ).prefetch_related(
         'authors',
         'edition_set__copy_set__location',
         'edition_set__copy_set__room',
