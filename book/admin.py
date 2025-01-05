@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Work, Edition, Copy, Author
+from .models import Work, Edition, Copy, Author, OpenLibraryCache
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
@@ -39,3 +39,28 @@ class CopyAdmin(admin.ModelAdmin):
     list_display = ('edition', 'condition', 'location', 'room', 'bookcase', 'shelf')
     list_filter = ('condition', 'location', 'room', 'bookcase')
     search_fields = ('edition__work__title', 'edition__publisher') 
+
+@admin.register(OpenLibraryCache)
+class OpenLibraryCacheAdmin(admin.ModelAdmin):
+    list_display = ('request_url', 'last_updated', 'cache_duration', 'response_preview')
+    search_fields = ('request_url',)
+    readonly_fields = ('last_updated',)
+    list_filter = ('last_updated',)
+    ordering = ('-last_updated',)
+    
+    def response_preview(self, obj):
+        """Preview first 100 characters of response"""
+        return f"{str(obj.response_data)[:100]}..."
+    response_preview.short_description = 'Response Preview'
+    
+    actions = ['clear_cache']
+    
+    def clear_cache(self, request, queryset):
+        """Admin action to clear selected cache entries"""
+        deleted_count = queryset.delete()[0]
+        if deleted_count == 1:
+            message = '1 cache entry was'
+        else:
+            message = f'{deleted_count} cache entries were'
+        self.message_user(request, f"{message} successfully cleared.")
+    clear_cache.short_description = "Clear selected cache entries" 
