@@ -133,3 +133,13 @@ class LocationEntityForm(forms.Form):
         widget=forms.Textarea(attrs={'rows': 3})
     )
     
+class ISBNForm(forms.Form):
+    """Input to get book ISBN"""
+    isbn = forms.CharField(
+        max_length=13,
+        widget=forms.TextInput(attrs={
+            'autofocus': 'autofocus',
+            'placeholder': 'Enter ISBN-10 or ISBN-13'
+        })
+    )
+    

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Add Book by ISBN</h2>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.isbn.errors %}
+                <div class="alert alert-danger">
+                    {{ form.isbn.errors }}
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    {{ form.isbn.label_tag }}
+                    {{ form.isbn }}
+                    <div class="form-text">
+                        Enter either ISBN-10 or ISBN-13 format
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Look Up Book</button>
+                <a href="{% url 'index' %}" class="btn btn-outline-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

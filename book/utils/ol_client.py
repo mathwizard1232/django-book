@@ -102,6 +102,54 @@ class CachedOpenLibrary(OpenLibrary):
                 except Exception as e:
                     logger.error(f"Search failed: {e}")
                     raise
+
+            @classmethod
+            def search_by_isbn(cls, isbn):
+                """Search for a work using an ISBN with caching support"""
+                # Clean ISBN
+                isbn = isbn.replace('-', '').strip()
+                
+                # Use search API with ISBN
+                url = f"{ol_instance.base_url}/search.json?isbn={isbn}"
+                
+                logger.debug(f"Making cached ISBN search request to {url}")
+                try:
+                    response = ol_instance._make_request(url)
+                    data = response.json()
+                    
+                    if not data.get('docs'):
+                        return None
+                        
+                    # Get first matching work
+                    doc = data['docs'][0]
+                    
+                    # Create Work object
+                    work = cls(doc['key'].split('/')[-1])
+                    work.title = doc['title']
+                    work.publish_date = doc.get('first_publish_year')
+                    work.publisher = doc.get('publisher', [''])[0] if doc.get('publisher') else ''
+                    
+                    # Create author objects as dictionaries with name and optional olid
+                    work.authors = []
+                    for i, name in enumerate(doc.get('author_name', [])):
+                        author = {'name': name}
+                        if 'author_key' in doc and i < len(doc['author_key']):
+                            author['olid'] = doc['author_key'][i]
+                        work.authors.append(author)
+                        
+                    # Add identifiers
+                    work.identifiers = {'olid': [doc['key'].split('/')[-1]]}
+                    if 'isbn' in doc:
+                        for isbn in doc['isbn']:
+                            key = 'isbn_13' if len(isbn) == 13 else 'isbn_10'
+                            if key not in work.identifiers:
+                                work.identifiers[key] = []
+                            work.identifiers[key].append(isbn)
+                    
+                    return work
+                except Exception as e:
+                    logger.error(f"ISBN search failed: {e}")
+                    raise
         
         return CachedWork
 
