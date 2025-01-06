@@ -153,7 +153,7 @@ def _handle_book_confirmation(request):
     
     # Get or create the work(s)
     if is_multivolume:
-        author = Author.objects.get(olid=author_olid)
+        author = Author.objects.get_or_fetch(author_olid)
         if entry_type == 'SINGLE':
             parent_work, volume_work = Work.create_single_volume(
                 set_title=clean_title,
@@ -239,6 +239,8 @@ def _handle_book_confirmation(request):
                             'bookcase': shelf.bookcase
                         })
                 Copy.objects.create(**copy_data)
+            
+            return HttpResponseRedirect('/author/')
         else:
             return HttpResponseBadRequest('Invalid entry_type')
     else:

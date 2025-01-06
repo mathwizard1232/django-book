@@ -347,6 +347,8 @@
                 btn.dataset.volume = i;
                 btn.onclick = function() {
                     this.classList.toggle('active');
+                    this.classList.toggle('btn-outline-secondary');
+                    this.classList.toggle('btn-success');
                     updateHiddenVolumeField(formIndex);
                 };
                 togglesDiv.appendChild(btn);

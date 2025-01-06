@@ -116,40 +116,46 @@ class Work(models.Model):
         return parent_work, volume_works
 
     @classmethod
-    def create_partial_volume_set(cls, title: str, authors, volume_numbers: list[int], **kwargs) -> tuple['Work', list['Work']]:
-        """
-        Creates a multi-volume Work set with only specified volumes.
+    def create_partial_volume_set(cls, title: str, volume_numbers: list, authors=None, editors=None, **kwargs):
+        """Create a parent work and specified volumes"""
+        logger.info("Creating partial volume set with:")
+        logger.info("title: %s", title)
+        logger.info("volume_numbers: %s", volume_numbers)
+        logger.info("kwargs: %s", kwargs)
         
-        Args:
-            title: The title of the complete set
-            authors: Author or list of authors
-            volume_numbers: List of volume numbers to create
-            **kwargs: Additional Work fields
-        
-        Returns:
-            Tuple of (parent_work, list_of_created_volume_works)
-        """
+        # Create parent work without authors/editors
+        filtered_kwargs = {k:v for k,v in kwargs.items() if k not in ('authors', 'editors')}
         parent_work = cls.objects.create(
             title=title,
             is_multivolume=True,
-            **kwargs
+            **filtered_kwargs
         )
         
-        if not isinstance(authors, (list, tuple)):
-            authors = [authors]
-        parent_work.authors.set(authors)
+        # Set authors and editors after creation
+        if authors:
+            if not isinstance(authors, (list, tuple)):
+                authors = [authors]
+            parent_work.authors.set(authors)
         
+        if editors:
+            if not isinstance(editors, (list, tuple)):
+                editors = [editors]
+            parent_work.editors.set(editors)
+
+        # Create individual volumes
         volume_works = []
-        for vol_num in sorted(volume_numbers):
+        for volume_number in volume_numbers:
             volume = cls.objects.create(
-                title=f"{title}, Volume {vol_num}",
+                title=title,
                 is_multivolume=False,
-                volume_number=vol_num,
+                volume_number=volume_number,
                 type=kwargs.get('type', 'NOVEL'),
                 original_publication_date=kwargs.get('original_publication_date')
             )
-            volume.authors.set(authors)
-            parent_work.component_works.add(volume)
+            if authors:
+                volume.authors.set(authors)
+            if editors:
+                volume.editors.set(editors)
             volume_works.append(volume)
         
         return parent_work, volume_works
