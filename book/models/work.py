@@ -57,7 +57,14 @@ class Work(models.Model):
         ]
     
     def __str__(self):
-        base = f"{self.title} by {', '.join(str(author) for author in self.authors.all())}"
+        if self.authors.exists():
+            creators = f"by {', '.join(str(author) for author in self.authors.all())}"
+        elif self.editors.exists():
+            creators = f"edited by {', '.join(str(editor) for editor in self.editors.all())}"
+        else:
+            creators = "(no authors or editors)"
+        
+        base = f"{self.title} {creators}"
         if self.volume_number:
             return f"{base} (Volume {self.volume_number})"
         return base
