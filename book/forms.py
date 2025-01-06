@@ -45,7 +45,7 @@ class TitleGivenAuthorForm(forms.Form):
             'autocomplete': 'off'}), required=False)
 
 class ConfirmBook(forms.Form):
-    """ Confirm a given book is the desired selection """
+    """Confirm a given book is the desired selection"""
     # Main visible fields
     title = forms.CharField(max_length=100)
     work_olid = forms.CharField(max_length=100)
@@ -54,16 +54,22 @@ class ConfirmBook(forms.Form):
     publisher = forms.CharField(required=False)
     publish_year = forms.CharField(required=False)
     
+    # Role selection for the author
+    ROLE_CHOICES = [
+        ('AUTHOR', 'Author'),
+        ('EDITOR', 'Editor')
+    ]
+    author_role = forms.ChoiceField(
+        choices=ROLE_CHOICES, 
+        initial='AUTHOR',
+        required=False
+    )
+    
     # Multi-volume fields - hidden since handled by template
     is_multivolume = forms.BooleanField(widget=forms.HiddenInput(), required=False)
     volume_count = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     volume_number = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     entry_type = forms.CharField(widget=forms.HiddenInput(), required=False)
-    """ entry_type = forms.ChoiceField(choices=[
-        ('SINGLE', 'Single Volume'),
-        ('COMPLETE', 'Complete Set'),
-        ('PARTIAL', 'Partial Set')
-    ], required=False) """
     
 class LocationForm(forms.Form):
     name = forms.CharField(max_length=100,

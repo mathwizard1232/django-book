@@ -63,13 +63,14 @@ class Work(models.Model):
         return base
 
     @classmethod
-    def create_volume_set(cls, title: str, authors, volume_count: int, **kwargs) -> tuple['Work', list['Work']]:
+    def create_volume_set(cls, title: str, authors=None, editors=None, volume_count: int = 1, **kwargs) -> tuple['Work', list['Work']]:
         """
         Creates a multi-volume Work set with the specified number of volumes.
         
         Args:
             title: The title of the complete set
-            authors: Author or list of authors
+            authors: Author or list of authors (optional)
+            editors: Author or list of editors (optional)
             volume_count: Number of volumes in the complete set
             **kwargs: Additional Work fields (type, original_publication_date, etc.)
         
@@ -83,10 +84,17 @@ class Work(models.Model):
             **kwargs
         )
         
-        # Add authors
-        if not isinstance(authors, (list, tuple)):
-            authors = [authors]
-        parent_work.authors.set(authors)
+        # Add authors if present
+        if authors:
+            if not isinstance(authors, (list, tuple)):
+                authors = [authors]
+            parent_work.authors.set(authors)
+        
+        # Add editors if present
+        if editors:
+            if not isinstance(editors, (list, tuple)):
+                editors = [editors]
+            parent_work.editors.set(editors)
         
         # Create individual volumes
         volume_works = []
@@ -95,10 +103,13 @@ class Work(models.Model):
                 title=f"{title}, Volume {vol_num}",
                 is_multivolume=False,
                 volume_number=vol_num,
-                type=kwargs.get('type', 'NOVEL'),  # Inherit type from parent
+                type=kwargs.get('type', 'NOVEL'),
                 original_publication_date=kwargs.get('original_publication_date')
             )
-            volume.authors.set(authors)
+            if authors:
+                volume.authors.set(authors)
+            if editors:
+                volume.editors.set(editors)
             parent_work.component_works.add(volume)
             volume_works.append(volume)
         

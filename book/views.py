@@ -148,6 +148,9 @@ def _handle_book_confirmation(request):
     volume_number = request.POST.get('volume_number')
     volume_count = request.POST.get('volume_count')
     
+    # Get the author role
+    author_role = request.POST.get('author_role', 'AUTHOR')
+    
     # Get or create the work(s)
     if is_multivolume:
         author = Author.objects.get(olid=author_olid)
@@ -155,22 +158,20 @@ def _handle_book_confirmation(request):
             parent_work, volume_work = Work.create_single_volume(
                 set_title=clean_title,
                 volume_number=int(volume_number),
-                authors=author,
+                authors=[] if author_role == 'EDITOR' else [author],
+                editors=[author] if author_role == 'EDITOR' else [],
                 olid=work_olid,
                 search_name=search_title,
                 type='COLLECTION'
             )
-            # Only create edition/copy for the volume work
             work = volume_work
-            
-            # Don't create edition/copy for parent_work
-            
         elif entry_type == 'COMPLETE':
             if not volume_count:
                 return HttpResponseBadRequest('volume_count required for COMPLETE set')
             parent_work, volume_works = Work.create_volume_set(
                 title=clean_title,
-                authors=author,
+                authors=[] if author_role == 'EDITOR' else [author],
+                editors=[author] if author_role == 'EDITOR' else [],
                 volume_count=int(volume_count),
                 olid=work_olid,
                 search_name=search_title,
@@ -223,7 +224,10 @@ def _handle_book_confirmation(request):
                 search_name=search_title,
                 type='NOVEL',
             )
-            work.authors.add(Author.objects.get(olid=author_olid))
+            if author_role == 'AUTHOR':
+                work.authors.add(Author.objects.get(olid=author_olid))
+            else:
+                work.editors.add(Author.objects.get(olid=author_olid))
             logger.info("Added new Work %s (%s) AKA %s", clean_title, work_olid, search_title)
         else:
             work = work_qs[0]
