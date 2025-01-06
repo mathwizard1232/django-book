@@ -36,7 +36,14 @@
                                 
                                 <div id="volume_count_field-{{ forloop.counter }}" class="form-group mt-2" style="display: none;">
                                     <label>Total Volumes in Set:</label>
-                                    <input type="number" name="volume_count" class="form-control">
+                                    <input type="number" name="volume_count" class="form-control" onchange="updateVolumeToggles(this)">
+                                </div>
+                                
+                                <div id="volume_toggles-{{ forloop.counter }}" class="form-group mt-2" style="display: none;">
+                                    <label>Select Volumes:</label>
+                                    <div class="volume-toggle-buttons">
+                                        <!-- Volume toggles will be inserted here -->
+                                    </div>
                                 </div>
                                 
                                 <div id="volume_number_field-{{ forloop.counter }}" class="form-group mt-2">
@@ -296,21 +303,71 @@
                 .id.split('-').pop();
             const volumeCountField = document.getElementById(`volume_count_field-${formIndex}`);
             const volumeNumberField = document.getElementById(`volume_number_field-${formIndex}`);
+            const volumeToggles = document.getElementById(`volume_toggles-${formIndex}`);
             
             switch(select.value) {
                 case 'COMPLETE':
                     volumeCountField.style.display = 'block';
                     volumeNumberField.style.display = 'none';
+                    volumeToggles.style.display = 'none';
                     break;
                 case 'SINGLE':
                     volumeCountField.style.display = 'none';
                     volumeNumberField.style.display = 'block';
+                    volumeToggles.style.display = 'none';
                     break;
                 case 'PARTIAL':
                     volumeCountField.style.display = 'block';
-                    volumeNumberField.style.display = 'block';
+                    volumeNumberField.style.display = 'none';
+                    volumeToggles.style.display = 'none'; // Will be shown when count is entered
                     break;
             }
+        }
+
+        function updateVolumeToggles(input) {
+            const formIndex = input.closest('form')
+                .querySelector('[id^="multivolume_options-"]')
+                .id.split('-').pop();
+            const togglesDiv = document.querySelector(`#volume_toggles-${formIndex} .volume-toggle-buttons`);
+            const count = parseInt(input.value);
+            
+            if (!count || count < 1) {
+                togglesDiv.parentElement.style.display = 'none';
+                return;
+            }
+            
+            togglesDiv.innerHTML = '';
+            togglesDiv.parentElement.style.display = 'block';
+            
+            for (let i = 1; i <= count; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-secondary me-2 mb-2';
+                btn.textContent = `Volume ${i}`;
+                btn.dataset.volume = i;
+                btn.onclick = function() {
+                    this.classList.toggle('active');
+                    updateHiddenVolumeField(formIndex);
+                };
+                togglesDiv.appendChild(btn);
+            }
+        }
+
+        function updateHiddenVolumeField(formIndex) {
+            const form = document.querySelector(`form:nth-of-type(${formIndex})`);
+            const togglesDiv = document.querySelector(`#volume_toggles-${formIndex} .volume-toggle-buttons`);
+            const selectedVolumes = Array.from(togglesDiv.querySelectorAll('button.active'))
+                .map(btn => btn.dataset.volume)
+                .join(',');
+            
+            let volumeNumbersInput = form.querySelector('input[name="volume_numbers"]');
+            if (!volumeNumbersInput) {
+                volumeNumbersInput = document.createElement('input');
+                volumeNumbersInput.type = 'hidden';
+                volumeNumbersInput.name = 'volume_numbers';
+                form.appendChild(volumeNumbersInput);
+            }
+            volumeNumbersInput.value = selectedVolumes;
         }
     </script>
 </div>

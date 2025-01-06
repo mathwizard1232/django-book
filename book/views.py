@@ -201,17 +201,44 @@ def _handle_book_confirmation(request):
                 Copy.objects.create(**copy_data)
             return HttpResponseRedirect('/author/')
         elif entry_type == 'PARTIAL':
-            if not volume_count or not volume_number:
-                return HttpResponseBadRequest('volume_count and volume_number required for PARTIAL set')
+            if not volume_count:
+                return HttpResponseBadRequest('volume_count required for PARTIAL set')
+            volume_numbers = request.POST.get('volume_numbers', '').split(',')
+            if not volume_numbers or not volume_numbers[0]:
+                return HttpResponseBadRequest('No volumes selected for PARTIAL set')
+            
             parent_work, volume_works = Work.create_partial_volume_set(
                 title=clean_title,
-                authors=author,
-                volume_numbers=[int(volume_number)],
+                authors=[] if author_role == 'EDITOR' else [author],
+                editors=[author] if author_role == 'EDITOR' else [],
+                volume_numbers=[int(v) for v in volume_numbers],
                 olid=work_olid,
                 search_name=search_title,
                 type='COLLECTION'
             )
-            work = volume_works[0]  # Use the first (only) volume for edition/copy creation
+            
+            # Create editions and copies for all selected volumes
+            for volume_work in volume_works:
+                edition = Edition.objects.create(
+                    work=volume_work,
+                    publisher=publisher if publisher else "Unknown",
+                    format="PAPERBACK",
+                )
+                copy_data = {
+                    'edition': edition,
+                    'condition': "GOOD",
+                }
+                if action == 'Confirm and Shelve':
+                    shelf_id = request.POST.get('shelf')
+                    if shelf_id:
+                        shelf = Shelf.objects.get(id=shelf_id)
+                        copy_data.update({
+                            'shelf': shelf,
+                            'location': shelf.bookcase.get_location(),
+                            'room': shelf.bookcase.room,
+                            'bookcase': shelf.bookcase
+                        })
+                Copy.objects.create(**copy_data)
         else:
             return HttpResponseBadRequest('Invalid entry_type')
     else:
