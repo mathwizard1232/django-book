@@ -7,6 +7,7 @@ from django.http.response import HttpResponse, HttpResponseBadRequest, JsonRespo
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
+from django.db.models import Count
 
 from .utils.ol_client import CachedOpenLibrary
 
@@ -476,6 +477,8 @@ def list(request):
         'edition_set__copy_set__room',
         'edition_set__copy_set__bookcase',
         'edition_set__copy_set__shelf'
+    ).annotate(
+        copy_count=Count('edition__copy')
     )
     
     # Group works by location > bookcase > shelf

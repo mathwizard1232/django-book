@@ -63,7 +63,9 @@
                                         <h6>Shelf {{ shelf }}</h6>
                                         <ul class="list-unstyled ms-3">
                                         {% for work in works %}
-                                            <li>{{ work }}</li>
+                                            <li>
+                                                {{ work }}{% if work.copy_count > 1 %} ({{ work.copy_count }} copies){% endif %}
+                                            </li>
                                         {% endfor %}
                                         </ul>
                                     </div>
