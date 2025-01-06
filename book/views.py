@@ -426,9 +426,17 @@ def list(request):
         key=lambda x: x.primary_name.split()[-1].lower()
     )
     
+    # Calculate statistics
+    total_authors = len(authors_with_works)
+    total_copies = Copy.objects.count()
+    total_works = Work.objects.filter(
+        edition__copy__isnull=False,
+        is_multivolume=False  # Only count individual volumes
+    ).distinct().count()
+    
     # Get works and organize by location hierarchy
     works = Work.objects.filter(
-        is_multivolume=False  # Only include individual volumes, not parent sets
+        is_multivolume=False
     ).prefetch_related(
         'authors',
         'edition_set__copy_set__location',
@@ -476,7 +484,12 @@ def list(request):
     context = {
         'authors': authors_with_works,
         'works_by_location': works_by_location,
-        'unassigned_works': unassigned_works
+        'unassigned_works': unassigned_works,
+        'stats': {
+            'total_authors': total_authors,
+            'total_copies': total_copies,
+            'total_works': total_works,
+        }
     }
     return render(request, 'list.html', context)
 
