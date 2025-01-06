@@ -15,14 +15,14 @@ Written with assistance from AI: Claude 3.5 Sonnet via Cursor IDE.
 LibraCents helps you manage your personal library with a focus on both organizational efficiency and collection value. It stands apart from other library management systems by:
 
 - Optimizing the book entry process beyond just ISBN scanning
-- Supporting flexible physical organization (shelves, boxes, rooms) (Coming Soon(tm))
+- Supporting flexible physical organization (shelves, boxes, rooms)
 - Helping track the value and investment in your collection (Coming Soon(tm))
-- Maintaining clear distinctions between Works, Editions, and physical Copies (Coming Soon(tm) (but for real this time))
+- Maintaining clear distinctions between Works, Editions, and physical Copies (Coming Soon(tm) (internally represented currently but not yet displayed or used beyond representing multiple copies of the same work))
 
 ## Key Features
 - Fast book identification through author-first search
 - Integration with OpenLibrary for comprehensive book data
-- Support for both simple and detailed location tracking (Coming Soon(tm))
+- Support for both simple and detailed location tracking
 - Bulk operations for managing boxed collections (Coming Soon(tm))
 - Local-first data with optional external lookups
 
@@ -70,3 +70,4 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Add better disambiguation when e.g. wrong edition of book? (though in theory current "Book" just content id)
 * Better handling of no result in confirm book
 * Split out base and autocomplete-base templates
+* Book valuation external sources & logic
