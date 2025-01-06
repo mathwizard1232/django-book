@@ -5,10 +5,10 @@
 
     <div class="row g-4 justify-content-start">
         {% for form in forms %}
-        <div class="col-md-6 d-flex justify-content-center">
-            <div class="card mb-4" style="min-width: 350px; max-width: 450px;">
+        <div class="{% if forms|length == 1 %}col-md-12{% else %}col-md-6{% endif %} d-flex justify-content-center">
+            <div class="card mb-4" style="{% if forms|length == 1 %}min-width: 600px; max-width: 800px{% else %}min-width: 350px; max-width: 450px{% endif %};">
                 <div class="card-header">
-                    <h5 class="mb-0">Option {{ forloop.counter }}</h5>
+                    <h5 class="mb-0">{% if forms|length > 1 %}Option {{ forloop.counter }}{% else %}Confirm Details{% endif %}</h5>
                 </div>
                 <div class="card-body">
                     <form action="/confirm-book.html" method="post">
