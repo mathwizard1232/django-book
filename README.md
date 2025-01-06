@@ -53,11 +53,10 @@ In both author and title selection, any local results are used first. When start
 not previously seen, the OpenLibrary API is called for lookup and confirmation screens are used for the new entries.
 
 ## Known Issues
-* Add by isbn breaks if author not already known in local system
-* "Editor" concept not yet supported (need to add next for a few books which are short story collections)
+* Should prompt to confirm before adding a duplicate Copy (second copy of Work in library)
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
-* Visuals inconsistent (UI text with background color set or not)
+* Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
 
 ## Wishlist
 * Better support for multiple author ids for same author in OpenLibrary

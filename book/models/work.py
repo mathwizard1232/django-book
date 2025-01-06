@@ -168,7 +168,7 @@ class Work(models.Model):
         return parent_work, volume_works
 
     @classmethod
-    def create_single_volume(cls, set_title: str, volume_number: int, authors, **kwargs):
+    def create_single_volume(cls, set_title: str, volume_number: int, authors=None, editors=None, **kwargs):
         logger.info("Creating single volume with:")
         logger.info("set_title: %s", set_title)
         logger.info("volume_number: %s", volume_number)
@@ -188,15 +188,22 @@ class Work(models.Model):
         
         # Create parent if it doesn't exist
         if not parent_work:
+            # Remove authors and editors from kwargs
+            filtered_kwargs = {k:v for k,v in kwargs.items() if k not in ('authors', 'editors', 'volume_number')}
             parent_work = cls.objects.create(
                 title=set_title,
                 is_multivolume=True,
                 volume_number=None,  # Explicitly set to None
-                **{k:v for k,v in kwargs.items() if k != 'volume_number'}  # Remove volume_number from kwargs
+                **filtered_kwargs
             )
-            if not isinstance(authors, (list, tuple)):
-                authors = [authors]
-            parent_work.authors.set(authors)
+            if authors:
+                if not isinstance(authors, (list, tuple)):
+                    authors = [authors]
+                parent_work.authors.set(authors)
+            if editors:
+                if not isinstance(editors, (list, tuple)):
+                    editors = [editors]
+                parent_work.editors.set(editors)
         
         # Create the single volume
         volume = cls.objects.create(
@@ -206,7 +213,10 @@ class Work(models.Model):
             type=kwargs.get('type', 'NOVEL'),
             original_publication_date=kwargs.get('original_publication_date')
         )
-        volume.authors.set(authors)
+        if authors:
+            volume.authors.set(authors)
+        if editors:
+            volume.editors.set(editors)
         parent_work.component_works.add(volume)
         
         return parent_work, volume

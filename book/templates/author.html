@@ -1,11 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
-    <h2>Author selection</h2> 
-    <p>Please type in the name of the author of the book.</p>
+    <h2>Author selection</h2>
+    <div class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" id="isEditor" name="is_editor" 
+               {% if is_editor %}checked{% endif %}>
+        <label class="form-check-label" for="isEditor">
+            This person is an editor (not author)
+        </label>
+    </div>
+    <p>Please type in the name of the {{ is_editor|yesno:"editor,author" }} of the book.</p>
     <p>Once you have typed three characters, suggestions may appear.</p>
     <form action="/author/" method="post">
         {% csrf_token %}
         {{ form }}
+        <input type="hidden" name="author_role" id="authorRole" value="{{ author_role }}">
         <input type="submit" value="Submit">
     </form>
 
@@ -17,12 +25,32 @@
 
     <script>
         $(function () {
+            // Debug logging
+            console.log("Initial author_role value:", $('#authorRole').val());
+            console.log("Initial isEditor checked state:", $('#isEditor').prop('checked'));
+            
+            // Initialize autocomplete
             $('.basicAutoComplete').autoComplete({
                 resolverSettings: {
                     url: '/author-autocomplete',
                     queryKey: 'q'
                 },
                 minLength: 3
+            });
+
+            // Get initial state from hidden input
+            const initialRole = $('#authorRole').val();
+            console.log("Setting up with initialRole:", initialRole);
+            if (initialRole === 'EDITOR') {
+                console.log("Setting isEditor to checked");
+                $('#isEditor').prop('checked', true);
+            }
+
+            // Handle changes
+            $('#isEditor').change(function() {
+                const newRole = this.checked ? 'EDITOR' : 'AUTHOR';
+                console.log("Checkbox changed, setting role to:", newRole);
+                $('#authorRole').val(newRole);
             });
         });
     </script>

@@ -23,24 +23,41 @@ def index(request):
 
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
+    # Debug logging for request
+    logger.info("GET params: %s", request.GET)
+    logger.info("POST params: %s", request.POST)
+    
     if request.method == 'POST':
         form = AuthorForm(request.POST)
         if form.is_valid():
-            # Send to a page which will attempt to look up this author name and confirm the selection
             name = form.cleaned_data['author_name']
-            return HttpResponseRedirect(f'/confirm-author.html?author_name={name}')
+            author_role = request.POST.get('author_role', 'AUTHOR').upper()
+            logger.info("POST processing - author_role: %s", author_role)
+            return HttpResponseRedirect(f'/confirm-author.html?author_name={name}&author_role={author_role}')
+    
+    author_role = request.GET.get('author_role', 'AUTHOR').upper()
+    logger.info("GET processing - author_role: %s", author_role)
     form = AuthorForm()
-    return render(request, 'author.html', {'form': form})
+    
+    context = {
+        'form': form,
+        'is_editor': author_role == 'EDITOR',
+        'author_role': author_role
+    }
+    logger.info("Rendering template with context: %s", context)
+    return render(request, 'author.html', context)
 
 def confirm_author(request):
     """ Do a lookup of this author by the name sent and display and confirm details from OpenLibrary """
     if request.method == 'GET':
         name = request.GET['author_name']
+        author_role = request.GET.get('author_role', 'AUTHOR')
+        
         if DIVIDER in name:
             # This is an autocomplete result already known locally
-            # Directly send them to title entry
             name, olid = name.split(DIVIDER)
-            return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}')
+            return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
+            
         ol = CachedOpenLibrary()
         results = ol.Author.search(name, 2)
         if not results:
@@ -53,7 +70,12 @@ def confirm_author(request):
         
         logger.info("Author bio for %s: %s", first_author['name'], bio if bio else "No biography available")
         
-        form = ConfirmAuthorForm({'author_olid' :first_olid, 'author_name': first_author['name'], 'search_name': name})
+        form = ConfirmAuthorForm({
+            'author_olid': first_olid, 
+            'author_name': first_author['name'], 
+            'search_name': name,
+            'author_role': author_role
+        })
 
         if bio:
             form = ConfirmAuthorFormWithBio({'author_olid' :first_olid, 'author_name': first_author['name'], 'search_name': name, 'bio': bio})
@@ -70,6 +92,9 @@ def confirm_author(request):
                 form2 = ConfirmAuthorFormWithBio({'author_olid': second_olid, 'author_name': second_author['name'], 'search_name': name, 'bio': second_bio})
         return render(request, 'confirm-author.html', {'form': form, 'form2': form2})
     if request.method == 'POST':
+        # Get the author role from the form
+        author_role = request.POST.get('author_role', 'AUTHOR')
+        
         # This is a confirmed author. Ensure that they have been recorded.
         name = request.POST['author_name']
         olid = request.POST['author_olid']
@@ -85,14 +110,18 @@ def confirm_author(request):
             logger.info("Recorded new author: %s (%s) AKA %s)", name, olid, search_name)
 
         # Finally, redirect them off to the title lookup
-        return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}')
+        return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
     if request.method == 'GET':
         if 'author_olid' in request.GET:
             a_olid = request.GET['author_olid']
-            form = TitleGivenAuthorForm({'author_olid': a_olid, 'author_name': request.GET['author_name']})
+            form = TitleGivenAuthorForm({
+                'author_olid': a_olid, 
+                'author_name': request.GET['author_name'],
+                'author_role': request.GET.get('author_role', 'AUTHOR')
+            })
             # Attempting to override with runtime value for url as a kludge for how to pass the author OLID
             data_url = "/author/" + a_olid +  "/title-autocomplete"
             logger.info("new data url %s", data_url)
