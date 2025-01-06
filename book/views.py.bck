@@ -1,3 +1,9 @@
+"""
+DEPRECATED: This file is deprecated and should be removed.
+This is kept as reference for files refactored into views/
+Delete after verifying refactoring worked.
+"""
+
 import logging
 import urllib.parse
 
