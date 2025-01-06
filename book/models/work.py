@@ -18,6 +18,7 @@ class Work(models.Model):
     # Core metadata
     title = models.CharField(max_length=100)
     authors = models.ManyToManyField(Author)
+    editors = models.ManyToManyField(Author, related_name='edited_works')
     original_publication_date = models.DateField(null=True, blank=True)
     
     # Work type and relationships
