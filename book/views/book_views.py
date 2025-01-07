@@ -86,7 +86,15 @@ def _handle_book_confirmation(request):
     author_role = request.POST.get('author_role', 'AUTHOR')
     
     # Get the author information
-    author_olids = request.POST.get('author_olids', '').split(',')
+    author_olids = request.POST.get('author_olids', '')
+    
+    # Backwards compatibility - if author_olids is empty but author_olid exists, use that
+    if not author_olids and request.POST.get('author_olid'):
+        author_olids = request.POST.get('author_olid')
+        logger.info("Using singular author_olid for backwards compatibility: %s", author_olids)
+    
+    # Split into list, filtering out empty strings
+    author_olids = [olid for olid in author_olids.split(',') if olid]
     
     # Handle non-multivolume work
     if not is_multivolume:
@@ -189,10 +197,12 @@ def _handle_book_search(request):
             'work_olid': work_olid,
             'publisher': publisher,
             'publish_year': publish_year,
-            'author_name': author_name
+            'author_name': author_name,
+            'author_olids': author_olid if author_olid else result.authors[0]['key'].replace('/authors/', '')
         }
         if args.get('author_olid'):
             form_args['author_olid'] = args['author_olid']
+            form_args['author_olids'] = args['author_olid']
         forms.append(ConfirmBook(form_args))
 
     # Add locations to context for the template
