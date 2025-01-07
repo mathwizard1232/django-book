@@ -18,6 +18,7 @@ from .autocomplete_views import (
     title_autocomplete,
     test_autocomplete
 )
+from .list_views import list
 
 def index(request):
     return render(request, 'index.html')
@@ -40,4 +41,5 @@ __all__ = [
     'author_autocomplete',
     'title_autocomplete',
     'test_autocomplete',
+    'list',
 ]

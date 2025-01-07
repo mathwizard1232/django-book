@@ -55,6 +55,8 @@ def _handle_book_confirmation(request):
     logger.info("volume_number: %s", request.POST.get('volume_number'))
     logger.info("volume_count: %s", request.POST.get('volume_count'))
     logger.info("display_title: %s", request.POST.get('title'))
+    logger.info("author_olid: %s", request.POST.get('author_olid'))
+    logger.info("author_name: %s", request.POST.get('author_name'))
     
     action = request.POST.get('action', 'Confirm Without Shelving')
     
@@ -182,11 +184,15 @@ def _handle_book_confirmation(request):
                 search_name=search_title,
                 type='NOVEL',
             )
-            if author_role == 'AUTHOR':
-                work.authors.add(Author.objects.get(olid=author_olid))
+            if not author_olid:
+                logger.warning("No author_olid provided - skipping author assignment")
             else:
-                work.editors.add(Author.objects.get(olid=author_olid))
-            logger.info("Added new Work %s (%s) AKA %s", clean_title, work_olid, search_title)
+                if author_role == 'AUTHOR':
+                    work.authors.add(Author.objects.get_or_fetch(author_olid))
+                else:
+                    work.editors.add(Author.objects.get_or_fetch(author_olid))
+                logger.info("Added new Work %s (%s) AKA %s with author %s", 
+                           clean_title, work_olid, search_title, author_olid)
         else:
             work = work_qs[0]
 
