@@ -7,6 +7,9 @@ from ..utils.ol_client import CachedOpenLibrary
 
 logger = logging.getLogger(__name__)
 
+# Add this constant
+DIVIDER = ' ‖ '  # Note: this is a special character, not a regular |
+
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
     # Debug logging for request
