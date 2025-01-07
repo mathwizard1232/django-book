@@ -4,11 +4,9 @@ from django.shortcuts import render
 from ..forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio
 from ..models import Author
 from ..utils.ol_client import CachedOpenLibrary
+from .autocomplete_views import DIVIDER  # Import the DIVIDER from autocomplete_views
 
 logger = logging.getLogger(__name__)
-
-# Add this constant
-DIVIDER = ' ‖ '  # Note: this is a special character, not a regular |
 
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
@@ -22,6 +20,13 @@ def get_author(request):
             name = form.cleaned_data['author_name']
             author_role = request.POST.get('author_role', 'AUTHOR').upper()
             logger.info("POST processing - author_role: %s", author_role)
+            
+            # Check if this is an autocomplete result with DIVIDER
+            if DIVIDER in name:
+                # This is a local author result, extract name and olid
+                name, olid = name.split(DIVIDER)
+                return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
+                
             return HttpResponseRedirect(f'/confirm-author.html?author_name={name}&author_role={author_role}')
     
     author_role = request.GET.get('author_role', 'AUTHOR').upper()

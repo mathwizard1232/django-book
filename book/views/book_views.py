@@ -5,11 +5,9 @@ from django.shortcuts import render
 from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook
 from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
+from .autocomplete_views import DIVIDER
 
 logger = logging.getLogger(__name__)
-
-# Add this constant
-DIVIDER = ' ‖ '  # Note: this is a special character, not a regular |
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
@@ -192,17 +190,20 @@ def _handle_book_search(request):
         publisher = result.publisher
         author_name = result.authors[0]['name']
 
+        # Get author OLID either from args or from search result
+        author_olids = args.get('author_olid', '')
+        if not author_olids and 'key' in result.authors[0]:
+            author_olids = result.authors[0]['key'].replace('/authors/', '')
+
         form_args = {
             'title': display_title,
             'work_olid': work_olid,
             'publisher': publisher,
             'publish_year': publish_year,
             'author_name': author_name,
-            'author_olids': author_olid if author_olid else result.authors[0]['key'].replace('/authors/', '')
+            'author_olids': author_olids
         }
-        if args.get('author_olid'):
-            form_args['author_olid'] = args['author_olid']
-            form_args['author_olids'] = args['author_olid']
+        
         forms.append(ConfirmBook(form_args))
 
     # Add locations to context for the template
