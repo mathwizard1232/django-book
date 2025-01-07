@@ -49,12 +49,13 @@ class ConfirmBook(forms.Form):
     # Main visible fields
     title = forms.CharField(max_length=100)
     work_olid = forms.CharField(max_length=100)
-    author_olid = forms.CharField(required=False)
-    author_name = forms.CharField(required=False)
+    # Change to handle multiple authors
+    author_olids = forms.CharField(required=False, widget=forms.HiddenInput())
+    author_names = forms.CharField(required=False, widget=forms.HiddenInput())
     publisher = forms.CharField(required=False)
     publish_year = forms.CharField(required=False)
     
-    # Role selection for the author
+    # Role selection for the authors
     ROLE_CHOICES = [
         ('AUTHOR', 'Author'),
         ('EDITOR', 'Editor')
@@ -65,7 +66,7 @@ class ConfirmBook(forms.Form):
         required=False
     )
     
-    # Multi-volume fields - hidden since handled by template
+    # Multi-volume fields remain the same
     is_multivolume = forms.BooleanField(widget=forms.HiddenInput(), required=False)
     volume_count = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     volume_number = forms.IntegerField(widget=forms.HiddenInput(), required=False)

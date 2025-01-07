@@ -82,100 +82,11 @@ def _handle_book_confirmation(request):
     # Get the author role
     author_role = request.POST.get('author_role', 'AUTHOR')
     
-    # Get or create the work(s)
-    if is_multivolume:
-        author = Author.objects.get_or_fetch(author_olid)
-        if entry_type == 'SINGLE':
-            parent_work, volume_work = Work.create_single_volume(
-                set_title=clean_title,
-                volume_number=int(volume_number),
-                authors=[] if author_role == 'EDITOR' else [author],
-                editors=[author] if author_role == 'EDITOR' else [],
-                olid=work_olid,
-                search_name=search_title,
-                type='COLLECTION'
-            )
-            work = volume_work
-        elif entry_type == 'COMPLETE':
-            if not volume_count:
-                return HttpResponseBadRequest('volume_count required for COMPLETE set')
-            parent_work, volume_works = Work.create_volume_set(
-                title=clean_title,
-                authors=[] if author_role == 'EDITOR' else [author],
-                editors=[author] if author_role == 'EDITOR' else [],
-                volume_count=int(volume_count),
-                olid=work_olid,
-                search_name=search_title,
-                type='COLLECTION'
-            )
-            # Create editions and copies for all volumes
-            for volume_work in volume_works:
-                edition = Edition.objects.create(
-                    work=volume_work,
-                    publisher=publisher if publisher else "Unknown",
-                    format="PAPERBACK",
-                )
-                copy_data = {
-                    'edition': edition,
-                    'condition': "GOOD",
-                }
-                if action == 'Confirm and Shelve':
-                    shelf_id = request.POST.get('shelf')
-                    if shelf_id:
-                        shelf = Shelf.objects.get(id=shelf_id)
-                        copy_data.update({
-                            'shelf': shelf,
-                            'location': shelf.bookcase.get_location(),
-                            'room': shelf.bookcase.room,
-                            'bookcase': shelf.bookcase
-                        })
-                Copy.objects.create(**copy_data)
-            return HttpResponseRedirect('/author/')
-        elif entry_type == 'PARTIAL':
-            if not volume_count:
-                return HttpResponseBadRequest('volume_count required for PARTIAL set')
-            volume_numbers = request.POST.get('volume_numbers', '').split(',')
-            if not volume_numbers or not volume_numbers[0]:
-                return HttpResponseBadRequest('No volumes selected for PARTIAL set')
-            
-            parent_work, volume_works = Work.create_partial_volume_set(
-                title=clean_title,
-                authors=[] if author_role == 'EDITOR' else [author],
-                editors=[author] if author_role == 'EDITOR' else [],
-                volume_numbers=[int(v) for v in volume_numbers],
-                olid=work_olid,
-                search_name=search_title,
-                type='COLLECTION'
-            )
-            
-            # Create editions and copies for all selected volumes
-            for volume_work in volume_works:
-                edition = Edition.objects.create(
-                    work=volume_work,
-                    publisher=publisher if publisher else "Unknown",
-                    format="PAPERBACK",
-                )
-                copy_data = {
-                    'edition': edition,
-                    'condition': "GOOD",
-                }
-                if action == 'Confirm and Shelve':
-                    shelf_id = request.POST.get('shelf')
-                    if shelf_id:
-                        shelf = Shelf.objects.get(id=shelf_id)
-                        copy_data.update({
-                            'shelf': shelf,
-                            'location': shelf.bookcase.get_location(),
-                            'room': shelf.bookcase.room,
-                            'bookcase': shelf.bookcase
-                        })
-                Copy.objects.create(**copy_data)
-            
-            return HttpResponseRedirect('/author/')
-        else:
-            return HttpResponseBadRequest('Invalid entry_type')
-    else:
-        # Handle non-multivolume work as before
+    # Get the author information
+    author_olids = request.POST.get('author_olids', '').split(',')
+    
+    # Handle non-multivolume work
+    if not is_multivolume:
         work_qs = Work.objects.filter(olid=work_olid)
         if not work_qs:
             work = Work.objects.create(
@@ -184,15 +95,21 @@ def _handle_book_confirmation(request):
                 search_name=search_title,
                 type='NOVEL',
             )
-            if not author_olid:
-                logger.warning("No author_olid provided - skipping author assignment")
-            else:
+            
+            # Add all authors
+            for author_olid in author_olids:
+                if not author_olid:
+                    logger.warning("Empty author_olid in sequence - skipping")
+                    continue
+                    
                 if author_role == 'AUTHOR':
                     work.authors.add(Author.objects.get_or_fetch(author_olid))
                 else:
                     work.editors.add(Author.objects.get_or_fetch(author_olid))
-                logger.info("Added new Work %s (%s) AKA %s with author %s", 
-                           clean_title, work_olid, search_title, author_olid)
+                logger.info("Added author %s to work %s", author_olid, work_olid)
+            
+            logger.info("Added new Work %s (%s) AKA %s with %d authors", 
+                       clean_title, work_olid, search_title, len(author_olids))
         else:
             work = work_qs[0]
 
