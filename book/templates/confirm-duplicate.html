@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="alert alert-warning">
+        <h4>Duplicate Book Detection</h4>
+        <p>This work is already in your library:</p>
+        <p><strong>{{ work.title }}</strong> by 
+            {% for author in work.authors.all %}
+                {{ author.primary_name }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+        
+        <p>Existing copies:</p>
+        <ul>
+        {% for edition in work.edition_set.all %}
+            {% for copy in edition.copy_set.all %}
+                <li>{{ copy }}</li>
+            {% endfor %}
+        {% endfor %}
+        </ul>
+    </div>
+
+    <form method="POST" action="{% url 'confirm_book' %}">
+        {% csrf_token %}
+        {% for key, value in form_data.items %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        <input type="hidden" name="confirm_duplicate" value="true">
+        
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Add Another Copy</button>
+            <a href="{% url 'get_author' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %} 

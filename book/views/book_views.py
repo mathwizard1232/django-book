@@ -65,6 +65,17 @@ def _handle_book_confirmation(request):
     work_olid = request.POST.get('work_olid')
     if not work_olid:
         return HttpResponseBadRequest('work_olid required')
+
+    # Check if Work already exists and has copies
+    existing_work = Work.objects.filter(olid=work_olid).first()
+    if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
+        if request.POST.get('confirm_duplicate') != 'true':
+            context = {
+                'work': existing_work,
+                'form_data': request.POST,
+                'locations': Location.objects.all()
+            }
+            return render(request, 'confirm-duplicate.html', context)
         
     # Get other required fields from POST
     display_title = request.POST.get('title')
@@ -94,10 +105,14 @@ def _handle_book_confirmation(request):
     # Split into list, filtering out empty strings
     author_olids = [olid for olid in author_olids.split(',') if olid]
     
+    # Track if this is a new work for the message
+    is_new_work = False
+    
     # Handle non-multivolume work
     if not is_multivolume:
         work_qs = Work.objects.filter(olid=work_olid)
         if not work_qs:
+            is_new_work = True
             work = Work.objects.create(
                 olid=work_olid,
                 title=clean_title,
@@ -148,7 +163,9 @@ def _handle_book_confirmation(request):
 
     copy = Copy.objects.create(**copy_data)
 
-    return HttpResponseRedirect('/author/')
+    # Add message to redirect
+    message = 'new_work' if is_new_work else 'new_copy'
+    return HttpResponseRedirect(f'/author/?message={message}&title={urllib.parse.quote(display_title)}')
 
 def _handle_book_search(request):
     """Search for and display potential book matches"""
