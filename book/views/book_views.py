@@ -8,6 +8,9 @@ from ..utils.ol_client import CachedOpenLibrary
 
 logger = logging.getLogger(__name__)
 
+# Add this constant
+DIVIDER = ' ‖ '  # Note: this is a special character, not a regular |
+
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
     if request.method == 'GET':
