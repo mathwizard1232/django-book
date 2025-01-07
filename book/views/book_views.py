@@ -3,7 +3,7 @@ import urllib.parse
 from django.http import HttpResponseRedirect, HttpResponseBadRequest
 from django.shortcuts import render
 from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook
-from ..models import Author, Work, Edition, Copy
+from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 
 logger = logging.getLogger(__name__)
