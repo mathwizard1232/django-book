@@ -192,6 +192,17 @@ def _handle_book_search(request):
         title, olid = search_title.split(DIVIDER)
         args['title'] = title
         args['work_olid'] = olid
+        
+        # Check for existing work with copies
+        existing_work = Work.objects.filter(olid=olid).first()
+        if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
+            context = {
+                'work': existing_work,
+                'form_data': args,
+                'locations': Location.objects.all()
+            }
+            return render(request, 'confirm-duplicate.html', context)
+            
         context['form'] = ConfirmBook(args)
         return HttpResponseRedirect('/author')
 
@@ -203,6 +214,26 @@ def _handle_book_search(request):
     for result in results:
         display_title = result.title
         work_olid = result.identifiers['olid'][0]
+        
+        # Check for existing work with copies before creating form
+        logger.info("Checking for existing work with copies for %s", work_olid)
+        existing_work = Work.objects.filter(olid=work_olid).first()
+        if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
+            logger.info("Found existing work with copies for %s", work_olid)
+            context = {
+                'work': existing_work,
+                'form_data': {
+                    'title': display_title,
+                    'work_olid': work_olid,
+                    'publisher': result.publisher,
+                    'publish_year': result.publish_date,
+                    'author_name': result.authors[0]['name'],
+                    'author_olids': result.authors[0].get('olid', '')
+                },
+                'locations': Location.objects.all()
+            }
+            return render(request, 'confirm-duplicate.html', context)
+            
         publish_year = result.publish_date
         publisher = result.publisher
         author_name = result.authors[0]['name']

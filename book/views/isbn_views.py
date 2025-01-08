@@ -2,7 +2,7 @@ import logging
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 from ..forms import ISBNForm, ConfirmBook
-from ..models import Location
+from ..models import Location, Work
 from ..utils.ol_client import CachedOpenLibrary
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,38 @@ def get_book_by_isbn(request):
                 book = ol.Work.search_by_isbn(isbn)
                 
                 if book:
+                    work_olid = book.identifiers['olid'][0]
+                    
+                    # Check for existing work with copies
+                    existing_work = Work.objects.filter(olid=work_olid).first()
+                    if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
+                        # Prepare form data for duplicate confirmation
+                        form_data = {
+                            'title': book.title,
+                            'work_olid': work_olid,
+                            'publisher': book.publisher,
+                            'publish_year': book.publish_date
+                        }
+                        
+                        # Handle author data
+                        if book.authors:
+                            author_olids = []
+                            author_names = []
+                            for author in book.authors:
+                                author_names.append(author['name'])
+                                if 'olid' in author:
+                                    author_olids.append(author['olid'])
+                            
+                            form_data['author_olids'] = ','.join(author_olids)
+                            form_data['author_names'] = ','.join(author_names)
+                        
+                        context = {
+                            'work': existing_work,
+                            'form_data': form_data,
+                            'locations': Location.objects.all()
+                        }
+                        return render(request, 'confirm-duplicate.html', context)
+                    
                     # Prepare form data for confirmation
                     form_data = {
                         'title': book.title,
