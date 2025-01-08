@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Count
+from django.db.models import Count, Q, F, OuterRef, Subquery
 from ..models import Author, Work, Copy, Location
 
 def list(request):
@@ -24,12 +24,11 @@ def list(request):
         is_multivolume=False
     ).prefetch_related(
         'authors',
+        'editors',
         'edition_set__copy_set__location',
         'edition_set__copy_set__room',
         'edition_set__copy_set__bookcase',
         'edition_set__copy_set__shelf'
-    ).annotate(
-        copy_count=Count('edition__copy')
     )
     
     # Group works by location > bookcase > shelf
@@ -38,12 +37,25 @@ def list(request):
     
     for work in works:
         has_assigned_location = False
+        shelf_copy_counts = {}  # Track copies per shelf for this work
+        
+        # First pass: count copies per shelf
+        for edition in work.edition_set.all():
+            for copy in edition.copy_set.all():
+                if copy.shelf:
+                    shelf_id = copy.shelf.id
+                    if shelf_id not in shelf_copy_counts:
+                        shelf_copy_counts[shelf_id] = 0
+                    shelf_copy_counts[shelf_id] += 1
+
+        # Second pass: organize works by location
         for edition in work.edition_set.all():
             for copy in edition.copy_set.all():
                 if copy.shelf and copy.bookcase:
                     location_name = copy.location.name if copy.location else copy.room.location.name
                     bookcase_name = copy.bookcase.name
                     shelf_position = copy.shelf.position
+                    shelf_id = copy.shelf.id
                     
                     if location_name not in works_by_location:
                         works_by_location[location_name] = {}
@@ -52,8 +64,13 @@ def list(request):
                     if shelf_position not in works_by_location[location_name][bookcase_name]:
                         works_by_location[location_name][bookcase_name][shelf_position] = []
                     
-                    if work not in works_by_location[location_name][bookcase_name][shelf_position]:
-                        works_by_location[location_name][bookcase_name][shelf_position].append(work)
+                    # Check if work is already on this shelf
+                    shelf_works = works_by_location[location_name][bookcase_name][shelf_position]
+                    if not any(w.id == work.id for w in shelf_works):
+                        # Create a copy of the work with shelf-specific copy count
+                        work_copy = Work.objects.get(id=work.id)
+                        work_copy.shelf_copy_count = shelf_copy_counts.get(shelf_id, 0)
+                        works_by_location[location_name][bookcase_name][shelf_position].append(work_copy)
                         has_assigned_location = True
         
         if not has_assigned_location:

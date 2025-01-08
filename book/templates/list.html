@@ -64,7 +64,13 @@
                                         <ul class="list-unstyled ms-3">
                                         {% for work in works %}
                                             <li>
-                                                {{ work }}{% if work.copy_count > 1 %} ({{ work.copy_count }} copies){% endif %}
+                                                {{ work.title }} 
+                                                {% if work.authors.all %}
+                                                    by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                {% elif work.editors.all %}
+                                                    edited by {% for editor in work.editors.all %}{{ editor.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                {% endif %}
+                                                {% if work.shelf_copy_count > 1 %} ({{ work.shelf_copy_count }} copies){% endif %}
                                             </li>
                                         {% endfor %}
                                         </ul>
