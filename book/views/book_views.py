@@ -297,6 +297,18 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
                     if simple_results:
                         results.extend(simple_results)
                         
+            # If still no results, try with last name only
+            if not results and ' ' in author_name:
+                # Get the last word as the last name
+                last_name = author_name.split()[-1]
+                logger.info("Trying search with author last name only '%s'", last_name)
+                try:
+                    last_name_results = ol.Work.search(author=last_name, title=title, limit=2)
+                    if last_name_results:
+                        results.extend(last_name_results)
+                except Exception as e:
+                    logger.warning("Error during last name search: %s", e)
+
         except Exception as e:
             logger.warning("Error during author name search: %s", e)
 
