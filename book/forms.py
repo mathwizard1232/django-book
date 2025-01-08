@@ -46,14 +46,11 @@ class TitleGivenAuthorForm(forms.Form):
 
 class ConfirmBook(forms.Form):
     """Confirm a given book is the desired selection"""
-    # Main visible fields
+    # Main visible fields - only keep essential content identifiers
     title = forms.CharField(max_length=100)
     work_olid = forms.CharField(max_length=100)
-    # Change to handle multiple authors
     author_olids = forms.CharField(required=False, widget=forms.HiddenInput())
     author_names = forms.CharField(required=False, widget=forms.HiddenInput())
-    publisher = forms.CharField(required=False)
-    publish_year = forms.CharField(required=False)
     
     # Role selection for the authors
     ROLE_CHOICES = [
@@ -66,7 +63,7 @@ class ConfirmBook(forms.Form):
         required=False
     )
     
-    # Multi-volume fields remain the same
+    # Multi-volume fields remain the same since they affect the Work structure
     is_multivolume = forms.BooleanField(widget=forms.HiddenInput(), required=False)
     volume_count = forms.IntegerField(widget=forms.HiddenInput(), required=False)
     volume_number = forms.IntegerField(widget=forms.HiddenInput(), required=False)

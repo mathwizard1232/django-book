@@ -108,60 +108,127 @@ def _handle_book_confirmation(request):
     # Track if this is a new work for the message
     is_new_work = False
     
-    # Handle non-multivolume work
-    if not is_multivolume:
-        work_qs = Work.objects.filter(olid=work_olid)
-        if not work_qs:
-            is_new_work = True
-            work = Work.objects.create(
-                olid=work_olid,
+    # Handle work creation
+    work_qs = Work.objects.filter(olid=work_olid)
+    if not work_qs:
+        is_new_work = True
+        work = Work.objects.create(
+            olid=work_olid,
+            title=clean_title,
+            search_name=search_title,
+            type='NOVEL',
+        )
+        
+        # Add all authors
+        for author_olid in author_olids:
+            if not author_olid:
+                logger.warning("Empty author_olid in sequence - skipping")
+                continue
+                
+            if author_role == 'AUTHOR':
+                work.authors.add(Author.objects.get_or_fetch(author_olid))
+            else:
+                work.editors.add(Author.objects.get_or_fetch(author_olid))
+            logger.info("Added author %s to work %s", author_olid, work_olid)
+        
+        logger.info("Added new Work %s (%s) AKA %s with %d authors", 
+                   clean_title, work_olid, search_title, len(author_olids))
+    else:
+        work = work_qs[0]
+
+    # Handle multivolume specifics if needed
+    if is_multivolume:
+        # Get authors before creating volumes
+        authors = []
+        for author_olid in author_olids:
+            if author_olid:
+                authors.append(Author.objects.get_or_fetch(author_olid))
+
+        if entry_type == 'COMPLETE':
+            work, volumes = Work.create_volume_set(
                 title=clean_title,
+                volume_count=int(volume_count),
+                authors=authors if author_role == 'AUTHOR' else None,
+                editors=authors if author_role == 'EDITOR' else None,
+                olid=work_olid,
                 search_name=search_title,
-                type='NOVEL',
+                type='NOVEL'
             )
-            
-            # Add all authors
-            for author_olid in author_olids:
-                if not author_olid:
-                    logger.warning("Empty author_olid in sequence - skipping")
-                    continue
-                    
-                if author_role == 'AUTHOR':
-                    work.authors.add(Author.objects.get_or_fetch(author_olid))
-                else:
-                    work.editors.add(Author.objects.get_or_fetch(author_olid))
-                logger.info("Added author %s to work %s", author_olid, work_olid)
-            
-            logger.info("Added new Work %s (%s) AKA %s with %d authors", 
-                       clean_title, work_olid, search_title, len(author_olids))
-        else:
-            work = work_qs[0]
+        elif entry_type == 'SINGLE':
+            work, volume = Work.create_single_volume(
+                set_title=clean_title,
+                volume_number=int(volume_number) if volume_number else 1,
+                authors=authors if author_role == 'AUTHOR' else None,
+                editors=authors if author_role == 'EDITOR' else None,
+                olid=work_olid,
+                search_name=search_title,
+                type='NOVEL'
+            )
+            volumes = [volume]
+        elif entry_type == 'PARTIAL':
+            volume_numbers = [int(v) for v in request.POST.get('volume_numbers', '').split(',') if v]
+            work, volumes = Work.create_partial_volume_set(
+                title=clean_title,
+                volume_numbers=volume_numbers,
+                authors=authors if author_role == 'AUTHOR' else None,
+                editors=authors if author_role == 'EDITOR' else None,
+                olid=work_olid,
+                search_name=search_title,
+                type='NOVEL'
+            )
 
-    # Create a default Edition
-    edition = Edition.objects.create(
-        work=work,
-        publisher=publisher if publisher else "Unknown",
-        format="PAPERBACK",
-    )
+    # Create Editions and Copies for all volumes if multivolume
+    if is_multivolume:
+        for volume in volumes:
+            edition = Edition.objects.create(
+                work=volume,
+                publisher=publisher if publisher else "Unknown",
+                format="PAPERBACK",
+            )
 
-    # Create a Copy with optional shelf assignment
-    copy_data = {
-        'edition': edition,
-        'condition': "GOOD",
-    }
+            copy_data = {
+                'edition': edition,
+                'condition': "GOOD",
+            }
 
-    if action == 'Confirm and Shelve':
-        shelf_id = request.POST.get('shelf')
-        if shelf_id:
-            shelf = Shelf.objects.get(id=shelf_id)
-            copy_data.update({
-                'shelf': shelf,
-                'location': shelf.bookcase.get_location(),
-                'room': shelf.bookcase.room,
-                'bookcase': shelf.bookcase
-            })
+            if action == 'Confirm and Shelve':
+                shelf_id = request.POST.get('shelf')
+                if shelf_id:
+                    shelf = Shelf.objects.get(id=shelf_id)
+                    copy_data.update({
+                        'shelf': shelf,
+                        'location': shelf.bookcase.get_location(),
+                        'room': shelf.bookcase.room,
+                        'bookcase': shelf.bookcase
+                    })
 
-    copy = Copy.objects.create(**copy_data)
+            Copy.objects.create(**copy_data)
+    else:
+        # Original single-volume Edition/Copy creation code
+        edition = Edition.objects.create(
+            work=work,
+            publisher=publisher if publisher else "Unknown",
+            format="PAPERBACK",
+        )
+
+        # Create a Copy with optional shelf assignment
+        copy_data = {
+            'edition': edition,
+            'condition': "GOOD",
+        }
+
+        if action == 'Confirm and Shelve':
+            shelf_id = request.POST.get('shelf')
+            if shelf_id:
+                shelf = Shelf.objects.get(id=shelf_id)
+                copy_data.update({
+                    'shelf': shelf,
+                    'location': shelf.bookcase.get_location(),
+                    'room': shelf.bookcase.room,
+                    'bookcase': shelf.bookcase
+                })
+
+        copy = Copy.objects.create(**copy_data)
 
     # Add message to redirect
     message = 'new_work' if is_new_work else 'new_copy'
@@ -225,9 +292,7 @@ def _handle_book_search(request):
                 'form_data': {
                     'title': display_title,
                     'work_olid': work_olid,
-                    'publisher': result.publisher,
-                    'publish_year': result.publish_date,
-                    'author_name': result.authors[0]['name'],
+                    'author_names': result.authors[0]['name'],
                     'author_olids': result.authors[0].get('olid', '')
                 },
                 'locations': Location.objects.all()
@@ -246,8 +311,6 @@ def _handle_book_search(request):
         form_args = {
             'title': display_title,
             'work_olid': work_olid,
-            'publisher': publisher,
-            'publish_year': publish_year,
             'author_olids': author_olids,
             'author_names': author_name
         }

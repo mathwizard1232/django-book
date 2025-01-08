@@ -15,6 +15,7 @@
                     <form action="/confirm-book.html" method="post">
                         {% csrf_token %}
                         
+                        <!-- Author Display -->
                         <div class="form-group mb-3">
                             <label>Author(s):</label>
                             {% with author_names=form.author_names.value|split:',' %}
@@ -24,8 +25,18 @@
                             {% endwith %}
                         </div>
 
-                        {{ form.as_p }}
+                        <!-- Title Display -->
+                        <div class="form-group mb-3">
+                            <label>Title:</label>
+                            <input type="text" class="form-control" name="title" value="{{ form.title.value }}">
+                        </div>
                         
+                        <!-- Hidden fields -->
+                        {{ form.work_olid }}
+                        {{ form.author_olids }}
+                        {{ form.author_names }}
+                        
+                        <!-- Multi-volume section -->
                         <div class="multivolume-section mb-3">
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" id="is_multivolume-{{ forloop.counter }}" 
@@ -47,7 +58,7 @@
                                 
                                 <div id="volume_count_field-{{ forloop.counter }}" class="form-group mt-2" style="display: none;">
                                     <label>Total Volumes in Set:</label>
-                                    <input type="number" name="volume_count" class="form-control" onchange="updateVolumeToggles(this)">
+                                    <input type="number" name="volume_count" class="form-control" onchange="handleVolumeCountChange(this)">
                                 </div>
                                 
                                 <div id="volume_toggles-{{ forloop.counter }}" class="form-group mt-2" style="display: none;">
@@ -64,6 +75,7 @@
                             </div>
                         </div>
 
+                        <!-- Location hierarchy -->
                         <div class="location-hierarchy mb-3">
                             <div class="form-group">
                                 <label for="location-{{ forloop.counter }}">Location</label>
@@ -107,9 +119,6 @@
                             <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
                             <input type="submit" name="action" value="Confirm and Shelve" class="btn btn-primary shelve-button" id="shelveButton-{{ forloop.counter }}" disabled>
                         </div>
-
-                        {{ form.author_olids }}
-                        {{ form.author_names }}
                     </form>
                 </div>
             </div>
@@ -324,6 +333,23 @@
                     volumeCountField.style.display = 'block';
                     volumeNumberField.style.display = 'none';
                     volumeToggles.style.display = 'none';
+                    // For complete sets, automatically create hidden volume numbers input
+                    const form = select.closest('form');
+                    let volumeNumbersInput = form.querySelector('input[name="volume_numbers"]');
+                    if (!volumeNumbersInput) {
+                        volumeNumbersInput = document.createElement('input');
+                        volumeNumbersInput.type = 'hidden';
+                        volumeNumbersInput.name = 'volume_numbers';
+                        form.appendChild(volumeNumbersInput);
+                    }
+                    // Update volume numbers when count changes
+                    const countInput = volumeCountField.querySelector('input[name="volume_count"]');
+                    countInput.addEventListener('change', function() {
+                        const count = parseInt(this.value);
+                        if (count && count > 0) {
+                            volumeNumbersInput.value = Array.from({length: count}, (_, i) => i + 1).join(',');
+                        }
+                    });
                     break;
                 case 'SINGLE':
                     volumeCountField.style.display = 'none';
@@ -384,6 +410,16 @@
                 form.appendChild(volumeNumbersInput);
             }
             volumeNumbersInput.value = selectedVolumes;
+        }
+
+        function handleVolumeCountChange(input) {
+            const form = input.closest('form');
+            const entryType = form.querySelector('select[name="entry_type"]').value;
+            
+            if (entryType === 'PARTIAL') {
+                updateVolumeToggles(input);
+            }
+            // For COMPLETE sets, the volume numbers are already handled in updateVolumeFields
         }
     </script>
 </div>
