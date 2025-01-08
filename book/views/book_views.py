@@ -248,9 +248,14 @@ def _handle_book_search(request):
             'work_olid': work_olid,
             'publisher': publisher,
             'publish_year': publish_year,
-            'author_name': author_name,
-            'author_olids': author_olids
+            'author_olids': author_olids,
+            'author_names': author_name
         }
+        logger.info("Final form_args: %s", form_args)
+        
+        logger.info("Form args before creating ConfirmBook form: %s", form_args)
+        logger.info("Author names from form_args: %s", form_args.get('author_names'))
+        logger.info("Author OLIDs from form_args: %s", form_args.get('author_olids'))
         
         forms.append(ConfirmBook(form_args))
 
