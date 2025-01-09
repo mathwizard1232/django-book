@@ -61,6 +61,8 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 ## Wishlist
 * Build out list / search of library: browse / find by author, etc
 * Better support for multiple author ids for same author in OpenLibrary
+  * Maybe instead of primary / alternative, default to primary with a list of alternatives, then option to select a different author instead? (Basically, do some logic to detect if any multiple results are likely the same author or different and branch accordingly, but go to a default author and enter title rather than always require the extra step on new author)
+* Similarly for Works, might want to just default to primary (not even bother with trying to identify other Work ids for the moment; deal with this when dealing with Edition details (because a desired Edition might be under a different Work id, but at basic Work/Copy level we don't care)) with option to select something else.
 * Add a mode for switching between "slow" ("this book has now been entered" with options), or "repeat author" (input set of one author) or "repeat entry" (input series of books) ; this saves a click at the end of entry for on-going sets (currently hardcoded to fast after duplicate titles)
 * Remote backup and restore capabilities
 * Custom entry for books not found
