@@ -64,13 +64,18 @@
                                         <ul class="list-unstyled ms-3">
                                         {% for work in works %}
                                             <li>
-                                                {{ work.title }} 
+                                                {{ work.title }}
+                                                {% if work.volume_number %} (Volume {{ work.volume_number }}){% endif %}
                                                 {% if work.authors.all %}
                                                     by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
                                                 {% elif work.editors.all %}
                                                     edited by {% for editor in work.editors.all %}{{ editor.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
                                                 {% endif %}
-                                                {% if work.shelf_copy_count > 1 %} ({{ work.shelf_copy_count }} copies){% endif %}
+                                                {% if work.is_multivolume %}
+                                                    {% if work.volume_count %} ({{ work.volume_count }} volumes){% endif %}
+                                                {% else %}
+                                                    {% if work.shelf_copy_count > 1 %} ({{ work.shelf_copy_count }} copies){% endif %}
+                                                {% endif %}
                                             </li>
                                         {% endfor %}
                                         </ul>

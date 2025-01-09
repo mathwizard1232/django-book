@@ -53,7 +53,6 @@ In both author and title selection, any local results are used first. When start
 not previously seen, the OpenLibrary API is called for lookup and confirmation screens are used for the new entries.
 
 ## Known Issues
-* Need to decide how to handle complete sets for list view (probably hide the individual volumes and show the overall multivolume Work vs currently it appears as unshelved; leaving for now until I get back to reshelving)
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
 * Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
