@@ -243,3 +243,21 @@ def get_shelf_books(request, shelf_id):
         logger.info(f"Added book data: {book_data}")
     
     return JsonResponse(books, safe=False)
+
+@require_http_methods(["GET"])
+def get_shelf(request, shelf_id):
+    """API endpoint to get shelf details"""
+    logger.info(f"Getting shelf details for ID {shelf_id}")
+    try:
+        shelf = Shelf.objects.get(id=shelf_id)
+        logger.info(f"Found shelf: {shelf.id}, notes: {shelf.notes}")
+        data = {
+            'id': shelf.id,
+            'name': f'Shelf {shelf.position}',
+            'notes': shelf.notes
+        }
+        logger.info(f"Returning shelf data: {data}")
+        return JsonResponse(data)
+    except Shelf.DoesNotExist:
+        logger.error(f"Shelf {shelf_id} not found")
+        return JsonResponse({'error': 'Shelf not found'}, status=404)

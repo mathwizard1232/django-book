@@ -47,6 +47,14 @@
                     </select>
                 </div>
             </div>
+
+            <div id="source_shelfNotesDisplay" class="row mb-3" style="display: none;">
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        <small id="source_shelfNotes"></small>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -95,6 +103,14 @@
                 
                 <!-- Location hierarchy selectors -->
                 {% include "includes/location-selector.html" with prefix="dest" %}
+                
+                <div id="dest_shelfNotesDisplay" class="row mb-3" style="display: none;">
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <small id="dest_shelfNotes"></small>
+                        </div>
+                    </div>
+                </div>
                 
                 <button type="submit" class="btn btn-primary mt-3" id="confirmReshelveBtn" disabled>
                     Confirm Reshelve
@@ -199,17 +215,28 @@
     }
 
     function displayShelfNotes(shelfId, prefix) {
-        fetch(`/api/shelves/${shelfId}/`)
+        console.log(`Displaying shelf notes for shelf ${shelfId} with prefix ${prefix}`);
+        fetch(`/api/shelf-details/${shelfId}/`)
             .then(response => response.json())
             .then(shelf => {
+                console.log('Received shelf data:', shelf);
                 const notesDisplay = document.getElementById(`${prefix}_shelfNotesDisplay`);
                 const notesText = document.getElementById(`${prefix}_shelfNotes`);
+                console.log('Found elements:', {
+                    notesDisplay: notesDisplay,
+                    notesText: notesText
+                });
                 if (shelf.notes) {
+                    console.log(`Setting notes text: ${shelf.notes}`);
                     notesText.textContent = shelf.notes;
                     notesDisplay.style.display = 'block';
                 } else {
+                    console.log('No notes found, hiding display');
                     notesDisplay.style.display = 'none';
                 }
+            })
+            .catch(error => {
+                console.error('Error fetching shelf notes:', error);
             });
     }
 

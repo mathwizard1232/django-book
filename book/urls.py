@@ -43,4 +43,5 @@ urlpatterns = [
     path('reshelve/', reshelve_books, name='reshelve_books'),
     path('api/books-by-location/<int:location_id>/', get_books_by_location, name='books_by_location'),
     path('api/shelves/<int:shelf_id>/books/', get_shelf_books, name='get_shelf_books'),
+    path('api/shelf-details/<int:shelf_id>/', get_shelf_details, name='get_shelf_details'),
 ]
