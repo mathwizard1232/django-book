@@ -6,6 +6,7 @@ from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook
 from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,6 @@ def _handle_book_confirmation(request):
     display_title = request.POST.get('title')
     # Strip any volume number from the title
     clean_title = Work.strip_volume_number(display_title)
-    author_olid = request.POST.get('author_olid')
     publisher = request.POST.get('publisher')
     search_title = request.POST.get('title', display_title)
     
@@ -91,12 +91,26 @@ def _handle_book_confirmation(request):
     volume_number = request.POST.get('volume_number')
     volume_count = request.POST.get('volume_count')
     
-    # Get the author role
-    author_role = request.POST.get('author_role', 'AUTHOR')
-    
-    # Get the author information
+    # Get author roles
+    author_roles = {}
+    if request.POST.get('author_roles'):
+        try:
+            author_roles = json.loads(request.POST.get('author_roles'))
+            logger.info("Parsed author_roles: %s", author_roles)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse author_roles JSON")
+            logger.warning("Raw author_roles value: %r", request.POST.get('author_roles'))
+    else:
+        logger.warning("No author_roles found in POST data")
+        logger.info("POST data: %s", dict(request.POST))
+
+    # Get author information with detailed logging
     author_olids = request.POST.get('author_olids', '')
-    
+    author_names = request.POST.get('author_names', '')
+    logger.info("Author OLIDs: %s", author_olids)
+    logger.info("Author Names: %s", author_names)
+    logger.info("Author Roles mapping: %s", author_roles)
+
     # Backwards compatibility - if author_olids is empty but author_olid exists, use that
     if not author_olids and request.POST.get('author_olid'):
         author_olids = request.POST.get('author_olid')
@@ -104,7 +118,8 @@ def _handle_book_confirmation(request):
     
     # Split into list, filtering out empty strings
     author_olids = [olid for olid in author_olids.split(',') if olid]
-    
+    logger.info("Final author_olids list: %s", author_olids)
+
     # Track if this is a new work for the message
     is_new_work = False
     
@@ -119,37 +134,59 @@ def _handle_book_confirmation(request):
             type='NOVEL',
         )
         
-        # Add all authors
-        for author_olid in author_olids:
-            if not author_olid:
-                logger.warning("Empty author_olid in sequence - skipping")
-                continue
-                
-            if author_role == 'AUTHOR':
-                work.authors.add(Author.objects.get_or_fetch(author_olid))
+        # Add authors and editors based on roles
+        for olid, name in zip(author_olids, author_names.split(',')):
+            author = Author.objects.get_or_fetch(olid)
+            if author:
+                # Ensure author is saved to database
+                if not author.pk:  # If author doesn't have a primary key, it needs to be saved
+                    author.save()
+                    
+                role = author_roles.get(name.strip(), 'AUTHOR')
+                if role == 'EDITOR':
+                    logger.info("Found author object for editor: %s (ID: %s)", author.primary_name, author.pk)
+                    work.editors.add(author)
+                    # Verify addition
+                    logger.info("After adding editor - work.editors count: %d", work.editors.count())
+                else:
+                    logger.info("Found author object for author: %s (ID: %s)", author.primary_name, author.pk)
+                    work.authors.add(author)
+                    # Verify addition
+                    logger.info("After adding author - work.authors count: %d", work.authors.count())
             else:
-                work.editors.add(Author.objects.get_or_fetch(author_olid))
-            logger.info("Added author %s to work %s", author_olid, work_olid)
+                logger.warning("No author found for OLID: %s, name: %s", olid, name)
         
-        logger.info("Added new Work %s (%s) AKA %s with %d authors", 
+        # Verify the additions
+        work.refresh_from_db()
+        logger.info("Work authors: %s", [a.primary_name for a in work.authors.all()])
+        logger.info("Work editors: %s", [e.primary_name for e in work.editors.all()])
+
+        logger.info("Added new Work %s (%s) AKA %s with %d authors/editors", 
                    clean_title, work_olid, search_title, len(author_olids))
     else:
         work = work_qs[0]
 
     # Handle multivolume specifics if needed
     if is_multivolume:
-        # Get authors before creating volumes
+        # Get authors and editors before creating volumes
         authors = []
-        for author_olid in author_olids:
-            if author_olid:
-                authors.append(Author.objects.get_or_fetch(author_olid))
+        editors = []
+        for olid, name in zip(author_olids, author_names.split(',')):
+            if olid:
+                author = Author.objects.get_or_fetch(olid)
+                if author:
+                    role = author_roles.get(name.strip(), 'AUTHOR')
+                    if role == 'EDITOR':
+                        editors.append(author)
+                    else:
+                        authors.append(author)
 
         if entry_type == 'COMPLETE':
             work, volumes = Work.create_volume_set(
                 title=clean_title,
                 volume_count=int(volume_count),
-                authors=authors if author_role == 'AUTHOR' else None,
-                editors=authors if author_role == 'EDITOR' else None,
+                authors=authors,
+                editors=editors,
                 olid=work_olid,
                 search_name=search_title,
                 type='NOVEL'
@@ -158,8 +195,8 @@ def _handle_book_confirmation(request):
             work, volume = Work.create_single_volume(
                 set_title=clean_title,
                 volume_number=int(volume_number) if volume_number else 1,
-                authors=authors if author_role == 'AUTHOR' else None,
-                editors=authors if author_role == 'EDITOR' else None,
+                authors=authors,
+                editors=editors,
                 olid=work_olid,
                 search_name=search_title,
                 type='NOVEL'
@@ -170,15 +207,14 @@ def _handle_book_confirmation(request):
             work, volumes = Work.create_partial_volume_set(
                 title=clean_title,
                 volume_numbers=volume_numbers,
-                authors=authors if author_role == 'AUTHOR' else None,
-                editors=authors if author_role == 'EDITOR' else None,
+                authors=authors,
+                editors=editors,
                 olid=work_olid,
                 search_name=search_title,
                 type='NOVEL'
             )
 
-    # Create Editions and Copies for all volumes if multivolume
-    if is_multivolume:
+        # Create Editions and Copies for all volumes
         for volume in volumes:
             edition = Edition.objects.create(
                 work=volume,

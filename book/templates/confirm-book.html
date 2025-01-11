@@ -20,10 +20,25 @@
                             <label>Author(s):</label>
                             {% with author_names=form.author_names.value|split:',' %}
                                 {% for author_name in author_names %}
-                                    <input type="text" class="form-control" value="{{ author_name }}" readonly>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <input type="text" class="form-control" value="{{ author_name }}" readonly>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" 
+                                                   id="is_editor-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" 
+                                                   name="is_editor" 
+                                                   onchange="updateAuthorRole(this, '{{ author_name }}')">
+                                            <label class="form-check-label" 
+                                                   for="is_editor-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                                                Is Editor
+                                            </label>
+                                        </div>
+                                    </div>
                                 {% endfor %}
                             {% endwith %}
                         </div>
+
+                        <!-- Hidden field for author roles -->
+                        <input type="hidden" name="author_roles" value="">
 
                         <!-- Title Display -->
                         <div class="form-group mb-3">
@@ -421,6 +436,40 @@
             }
             // For COMPLETE sets, the volume numbers are already handled in updateVolumeFields
         }
+
+        function updateAuthorRole(checkbox, authorName) {
+            const form = checkbox.closest('form');
+            const rolesInput = form.querySelector('input[name="author_roles"]');
+            let roles = rolesInput.value ? JSON.parse(rolesInput.value) : {};
+            
+            roles[authorName] = checkbox.checked ? 'EDITOR' : 'AUTHOR';
+            rolesInput.value = JSON.stringify(roles);
+            
+            console.log('Updated author roles:', {
+                authorName,
+                isEditor: checkbox.checked,
+                allRoles: roles,
+                rolesInputValue: rolesInput.value
+            });
+        }
+
+        // Initialize roles on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('form').forEach(form => {
+                const rolesInput = form.querySelector('input[name="author_roles"]');
+                const authorInputs = form.querySelectorAll('.form-group input[readonly]');
+                
+                // Initialize with all authors as AUTHOR
+                const roles = {};
+                authorInputs.forEach(input => roles[input.value.trim()] = 'AUTHOR');
+                rolesInput.value = JSON.stringify(roles);
+                
+                console.log('Initialized author roles:', {
+                    roles,
+                    rolesInputValue: rolesInput.value
+                });
+            });
+        });
     </script>
 </div>
 {% endblock %}
