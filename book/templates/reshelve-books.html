@@ -99,7 +99,6 @@
             <form id="reshelveForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" id="selectedShelf" name="shelf_id" value="">
-                <input type="hidden" id="selectedBooks" name="copy_ids" value="">
                 
                 <!-- Location hierarchy selectors -->
                 {% include "includes/location-selector.html" with prefix="dest" %}
@@ -330,8 +329,19 @@
             .filter(cb => cb.checked)
             .map(cb => cb.value);
         
-        // Update the hidden input with selected book IDs
-        document.getElementById('selectedBooks').value = selectedBooks.join(',');
+        // Remove any existing copy_ids hidden inputs
+        const existingInputs = document.querySelectorAll('input[name="copy_ids"]');
+        existingInputs.forEach(input => input.remove());
+        
+        // Create new hidden inputs for each selected book
+        const form = document.getElementById('reshelveForm');
+        selectedBooks.forEach(copyId => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'copy_ids';
+            input.value = copyId;
+            form.appendChild(input);
+        });
         
         const hasSelectedBooks = selectedBooks.length > 0;
         
