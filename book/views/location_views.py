@@ -212,6 +212,7 @@ def get_books_by_location(request, location_id):
 @require_http_methods(["GET"])
 def get_shelf_books(request, shelf_id):
     """API endpoint to get books for a shelf"""
+    logger.info(f"Getting books for shelf {shelf_id}")
     copies = Copy.objects.filter(
         shelf_id=shelf_id
     ).select_related(
@@ -222,13 +223,23 @@ def get_shelf_books(request, shelf_id):
         'shelf'
     )
     
-    books = [{
-        'copy_id': copy.id,
-        'title': copy.edition.work.title,
-        'authors': ', '.join(author.primary_name for author in copy.edition.work.authors.all()),
-        'location_path': f"{copy.location.name} > {copy.room.name if copy.room else ''} > "
-                        f"{copy.bookcase.name if copy.bookcase else ''} > "
-                        f"Shelf {copy.shelf.position if copy.shelf else ''}"
-    } for copy in copies]
+    logger.info(f"Found {copies.count()} copies")
+    
+    books = []
+    for copy in copies:
+        work = copy.edition.work
+        logger.info(f"Processing work: {work.title} (id={work.id}, is_multivolume={work.is_multivolume}, volume_number={work.volume_number})")
+        
+        book_data = {
+            'copy_id': copy.id,
+            'title': work.title,
+            'volume_number': work.volume_number,
+            'authors': ', '.join(author.primary_name for author in work.authors.all()),
+            'location_path': f"{copy.location.name} > {copy.room.name if copy.room else ''} > "
+                           f"{copy.bookcase.name if copy.bookcase else ''} > "
+                           f"Shelf {copy.shelf.position if copy.shelf else ''}"
+        }
+        books.append(book_data)
+        logger.info(f"Added book data: {book_data}")
     
     return JsonResponse(books, safe=False)

@@ -236,33 +236,45 @@
     });
 
     function loadBooksForShelf(shelfId) {
+        console.log('Loading books for shelf:', shelfId);
         fetch(`/api/shelves/${shelfId}/books/`)
             .then(response => response.json())
             .then(books => {
+                console.log('Received books:', books);
                 const tbody = document.querySelector('#booksTable tbody');
                 tbody.innerHTML = '';
                 
                 if (books.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="4" class="text-center">No books on this shelf</td></tr>';
+                    const destinationSection = document.getElementById('destinationSection');
+                    if (destinationSection) {
+                        destinationSection.style.display = 'none';
+                    }
                     return;
                 }
 
                 books.forEach(book => {
+                    console.log('Processing book:', book);
                     const row = document.createElement('tr');
+                    const title = book.volume_number 
+                        ? `${book.title} (Volume ${book.volume_number})`
+                        : book.title;
                     row.innerHTML = `
                         <td>
                             <input type="checkbox" class="form-check-input book-checkbox" 
                                    value="${book.copy_id}">
                         </td>
-                        <td>${book.title}</td>
+                        <td>${title}</td>
                         <td>${book.authors}</td>
                         <td>${book.location_path}</td>
                     `;
                     tbody.appendChild(row);
                 });
                 
-                // Initialize checkbox handlers
                 initializeCheckboxHandlers();
+            })
+            .catch(error => {
+                console.error('Error loading books:', error);
             });
     }
 
@@ -290,5 +302,20 @@
         document.getElementById('confirmReshelveBtn').disabled = !(hasSelectedShelf && hasSelectedBooks);
         document.getElementById('destinationSection').style.display = hasSelectedBooks ? 'block' : 'none';
     }
+
+    // Auto-select single location if it's the only option
+    window.addEventListener('DOMContentLoaded', function() {
+        const sourceLocationSelect = document.getElementById('source_location');
+        if (sourceLocationSelect.options.length === 2) {  // Including the placeholder option
+            sourceLocationSelect.selectedIndex = 1;
+            loadRooms(sourceLocationSelect.value, 'source');
+        }
+        
+        const destLocationSelect = document.getElementById('dest_location');
+        if (destLocationSelect.options.length === 2) {
+            destLocationSelect.selectedIndex = 1;
+            loadRooms(destLocationSelect.value, 'dest');
+        }
+    });
 </script>
 {% endblock %}
