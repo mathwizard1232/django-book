@@ -326,8 +326,14 @@
 
     function updateReshelveButton() {
         const hasSelectedShelf = document.getElementById('selectedShelf').value !== '';
-        const hasSelectedBooks = Array.from(document.getElementsByClassName('book-checkbox'))
-            .some(cb => cb.checked);
+        const selectedBooks = Array.from(document.getElementsByClassName('book-checkbox'))
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+        
+        // Update the hidden input with selected book IDs
+        document.getElementById('selectedBooks').value = selectedBooks.join(',');
+        
+        const hasSelectedBooks = selectedBooks.length > 0;
         
         document.getElementById('confirmReshelveBtn').disabled = !(hasSelectedShelf && hasSelectedBooks);
         document.getElementById('destinationSection').style.display = hasSelectedBooks ? 'block' : 'none';
