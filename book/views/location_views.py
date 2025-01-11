@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from ..forms import LocationForm, LocationEntityForm
 from ..models import Location, Room, Bookcase, Shelf, Copy
+from django.contrib import messages
 
 logger = logging.getLogger(__name__)
 
@@ -167,13 +168,25 @@ def reshelve_books(request):
         
         if shelf_id and copy_ids:
             shelf = Shelf.objects.get(id=shelf_id)
-            # Update all selected copies
+            # Get the copies before updating them to access their titles
+            copies = Copy.objects.filter(id__in=copy_ids).select_related('edition__work')
+            
+            # Store message data
+            if len(copies) == 1:
+                copy = copies[0]
+                message = f"Moved '{copy.edition.work.title}' to {shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+            else:
+                message = f"Moved {len(copies)} books to {shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+            
+            # Update the copies
             Copy.objects.filter(id__in=copy_ids).update(
                 shelf_id=shelf_id,
                 location=shelf.bookcase.get_location(),
                 room=shelf.bookcase.room,
                 bookcase=shelf.bookcase
             )
+            
+            messages.success(request, message)
             return HttpResponseRedirect(reverse('reshelve_books'))
     
     # Get all locations for the location hierarchy
