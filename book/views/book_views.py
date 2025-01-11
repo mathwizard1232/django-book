@@ -203,6 +203,13 @@ def _handle_book_confirmation(request):
                     })
 
             Copy.objects.create(**copy_data)
+        
+        # Add message after creating all volumes
+        if action == 'Confirm and Shelve' and shelf_id:
+            location_path = f"{shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+            message = f"new_copy_shelved&title={urllib.parse.quote(display_title)}&location={urllib.parse.quote(location_path)}"
+        else:
+            message = f"new_work&title={urllib.parse.quote(display_title)}"
     else:
         # Original single-volume Edition/Copy creation code
         edition = Edition.objects.create(
@@ -230,9 +237,14 @@ def _handle_book_confirmation(request):
 
         copy = Copy.objects.create(**copy_data)
 
-    # Add message to redirect
-    message = 'new_work' if is_new_work else 'new_copy'
-    return HttpResponseRedirect(f'/author/?message={message}&title={urllib.parse.quote(display_title)}')
+        # Add appropriate message based on shelving status
+        if action == 'Confirm and Shelve' and shelf_id:
+            location_path = f"{shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+            message = f"new_copy_shelved&title={urllib.parse.quote(display_title)}&location={urllib.parse.quote(location_path)}"
+        else:
+            message = f"new_work&title={urllib.parse.quote(display_title)}"
+
+    return HttpResponseRedirect(f'/author/?message={message}')
 
 def _handle_book_search(request):
     """Search for and display potential book matches"""

@@ -7,6 +7,8 @@
             Added new work "{{ request.GET.title }}" to your library
         {% elif request.GET.message == 'new_copy' %}
             Added another copy of "{{ request.GET.title }}" to your library
+        {% elif request.GET.message == 'new_copy_shelved' %}
+            Added "{{ request.GET.title }}" to your library and shelved at {{ request.GET.location }}
         {% endif %}
         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>
