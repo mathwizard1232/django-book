@@ -301,9 +301,11 @@
                     row.innerHTML = `
                         <td>
                             <input type="checkbox" class="form-check-input book-checkbox" 
-                                   value="${book.copy_id}">
+                                   value="${book.copy_id}" id="book-${book.copy_id}">
                         </td>
-                        <td>${title}</td>
+                        <td class="book-title" style="cursor: pointer" onclick="document.getElementById('book-${book.copy_id}').click()">
+                            ${title}
+                        </td>
                         <td>${book.authors}</td>
                         <td>${book.location_path}</td>
                     `;
