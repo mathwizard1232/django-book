@@ -11,7 +11,10 @@ from .location_views import (
     assign_location,
     update_shelf_notes,
     shelve_books,
-    get_shelf_details
+    get_shelf_details,
+    reshelve_books,
+    get_books_by_location,
+    get_shelf_books
 )
 from .autocomplete_views import (
     author_autocomplete,
@@ -42,4 +45,7 @@ __all__ = [
     'title_autocomplete',
     'test_autocomplete',
     'list',
+    'reshelve_books',
+    'get_books_by_location',
+    'get_shelf_books',
 ]

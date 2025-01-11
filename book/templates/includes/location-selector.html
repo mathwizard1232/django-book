@@ -1,0 +1,47 @@
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label for="{{ prefix }}_location" class="form-label">Building/Location</label>
+        <select class="form-select" id="{{ prefix }}_location" name="{{ prefix }}_location">
+            <option value="">Select location...</option>
+            {% for location in locations %}
+                <option value="{{ location.id }}">{{ location.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label for="{{ prefix }}_room" class="form-label">Room</label>
+        <select class="form-select" id="{{ prefix }}_room" name="{{ prefix }}_room" disabled>
+            <option value="">Select room...</option>
+        </select>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label for="{{ prefix }}_bookcase" class="form-label">Bookcase</label>
+        <select class="form-select" id="{{ prefix }}_bookcase" name="{{ prefix }}_bookcase" disabled>
+            <option value="">Select bookcase...</option>
+        </select>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label for="{{ prefix }}_shelf" class="form-label">Shelf</label>
+        <select class="form-select" id="{{ prefix }}_shelf" name="{{ prefix }}_shelf" disabled>
+            <option value="">Select shelf...</option>
+        </select>
+    </div>
+</div>
+
+<!-- Add shelf notes display -->
+<div id="{{ prefix }}_shelfNotesDisplay" class="row mb-3" style="display: none;">
+    <div class="col-md-6">
+        <div class="alert alert-info">
+            <small id="{{ prefix }}_shelfNotes"></small>
+        </div>
+    </div>
+</div>

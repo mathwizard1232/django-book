@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Reshelve Books</h2>
+    
+    <!-- Source Location Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Select Source Location</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="source_location" class="form-label">Building/Location</label>
+                    <select class="form-select" id="source_location" name="source_location">
+                        <option value="">Select location...</option>
+                        {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="source_room" class="form-label">Room</label>
+                    <select class="form-select" id="source_room" name="source_room" disabled>
+                        <option value="">Select room...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="source_bookcase" class="form-label">Bookcase</label>
+                    <select class="form-select" id="source_bookcase" name="source_bookcase" disabled>
+                        <option value="">Select bookcase...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="source_shelf" class="form-label">Shelf</label>
+                    <select class="form-select" id="source_shelf" name="source_shelf" disabled>
+                        <option value="">Select shelf...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Book Selection Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Select Books to Reshelve</h5>
+            <button class="btn btn-primary" id="reshelveSelectedBtn" disabled>
+                Reshelve Selected Books
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table" id="booksTable">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" class="form-check-input">
+                            </th>
+                            <th>Title</th>
+                            <th>Author(s)</th>
+                            <th>Current Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" class="text-center">Select a source location to view books</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Destination Selection Section -->
+    <div class="card" id="destinationSection" style="display: none;">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Select Destination Shelf</h5>
+        </div>
+        <div class="card-body">
+            <!-- Reuse your existing location selection hierarchy here -->
+            <form id="reshelveForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" id="selectedShelf" name="shelf_id" value="">
+                <input type="hidden" id="selectedBooks" name="copy_ids" value="">
+                
+                <!-- Location hierarchy selectors -->
+                {% include "includes/location-selector.html" with prefix="dest" %}
+                
+                <button type="submit" class="btn btn-primary mt-3" id="confirmReshelveBtn" disabled>
+                    Confirm Reshelve
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Source location event listeners
+    document.getElementById('source_location').addEventListener('change', function() {
+        loadRooms(this.value, 'source');
+    });
+    
+    document.getElementById('source_room').addEventListener('change', function() {
+        loadBookcases(this.value, 'source');
+    });
+    
+    document.getElementById('source_bookcase').addEventListener('change', function() {
+        loadShelves(this.value, 'source');
+    });
+
+    // Destination location event listeners
+    document.getElementById('dest_location').addEventListener('change', function() {
+        loadRooms(this.value, 'dest');
+    });
+    
+    document.getElementById('dest_room').addEventListener('change', function() {
+        loadBookcases(this.value, 'dest');
+    });
+    
+    document.getElementById('dest_bookcase').addEventListener('change', function() {
+        loadShelves(this.value, 'dest');
+    });
+
+    function loadRooms(locationId, prefix) {
+        if (!locationId) {
+            disableSelect(`${prefix}_room`);
+            return;
+        }
+        fetch(`/api/rooms/${locationId}`)
+            .then(response => response.json())
+            .then(rooms => {
+                updateSelect(`${prefix}_room`, rooms);
+                // Auto-select if single room
+                const roomSelect = document.getElementById(`${prefix}_room`);
+                if (roomSelect.options.length === 2) {
+                    roomSelect.selectedIndex = 1;
+                    loadBookcases(roomSelect.value, prefix);
+                }
+            });
+    }
+    
+    function loadBookcases(roomId, prefix) {
+        if (!roomId) {
+            disableSelect(`${prefix}_bookcase`);
+            return;
+        }
+        fetch(`/api/bookcases/${roomId}`)
+            .then(response => response.json())
+            .then(bookcases => {
+                updateSelect(`${prefix}_bookcase`, bookcases);
+            });
+    }
+    
+    function loadShelves(bookcaseId, prefix) {
+        if (!bookcaseId) {
+            disableSelect(`${prefix}_shelf`);
+            return;
+        }
+        fetch(`/api/shelves/${bookcaseId}`)
+            .then(response => response.json())
+            .then(shelves => {
+                updateSelect(`${prefix}_shelf`, shelves);
+                // After loading shelves, check if we should display shelf notes
+                const shelfSelect = document.getElementById(`${prefix}_shelf`);
+                if (shelfSelect.value) {
+                    displayShelfNotes(shelfSelect.value, prefix);
+                }
+            });
+    }
+    
+    function updateSelect(elementId, options) {
+        const select = document.getElementById(elementId);
+        select.disabled = false;
+        select.innerHTML = '<option value="">Select...</option>';
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.id;
+            option.textContent = opt.name;
+            // Store the full shelf data on the option element
+            option.shelf = opt;
+            select.appendChild(option);
+        });
+    }
+    
+    function disableSelect(elementId) {
+        const select = document.getElementById(elementId);
+        select.disabled = true;
+        select.innerHTML = '<option value="">Select...</option>';
+    }
+
+    function displayShelfNotes(shelfId, prefix) {
+        fetch(`/api/shelves/${shelfId}/`)
+            .then(response => response.json())
+            .then(shelf => {
+                const notesDisplay = document.getElementById(`${prefix}_shelfNotesDisplay`);
+                const notesText = document.getElementById(`${prefix}_shelfNotes`);
+                if (shelf.notes) {
+                    notesText.textContent = shelf.notes;
+                    notesDisplay.style.display = 'block';
+                } else {
+                    notesDisplay.style.display = 'none';
+                }
+            });
+    }
+
+    // Add shelf change event listeners
+    document.getElementById('source_shelf').addEventListener('change', function() {
+        const shelfId = this.value;
+        if (shelfId) {
+            displayShelfNotes(shelfId, 'source');
+            loadBooksForShelf(shelfId);
+        } else {
+            document.getElementById('source_shelfNotesDisplay').style.display = 'none';
+        }
+    });
+
+    document.getElementById('dest_shelf').addEventListener('change', function() {
+        const shelfId = this.value;
+        document.getElementById('selectedShelf').value = shelfId;
+        if (shelfId) {
+            displayShelfNotes(shelfId, 'dest');
+        } else {
+            document.getElementById('dest_shelfNotesDisplay').style.display = 'none';
+        }
+        updateReshelveButton();
+    });
+
+    function loadBooksForShelf(shelfId) {
+        fetch(`/api/shelves/${shelfId}/books/`)
+            .then(response => response.json())
+            .then(books => {
+                const tbody = document.querySelector('#booksTable tbody');
+                tbody.innerHTML = '';
+                
+                if (books.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">No books on this shelf</td></tr>';
+                    return;
+                }
+
+                books.forEach(book => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <input type="checkbox" class="form-check-input book-checkbox" 
+                                   value="${book.copy_id}">
+                        </td>
+                        <td>${book.title}</td>
+                        <td>${book.authors}</td>
+                        <td>${book.location_path}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                // Initialize checkbox handlers
+                initializeCheckboxHandlers();
+            });
+    }
+
+    function initializeCheckboxHandlers() {
+        // Select all functionality
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.getElementsByClassName('book-checkbox');
+            for (let checkbox of checkboxes) {
+                checkbox.checked = this.checked;
+            }
+            updateReshelveButton();
+        });
+
+        // Individual checkbox handling
+        document.querySelectorAll('.book-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateReshelveButton);
+        });
+    }
+
+    function updateReshelveButton() {
+        const hasSelectedShelf = document.getElementById('selectedShelf').value !== '';
+        const hasSelectedBooks = Array.from(document.getElementsByClassName('book-checkbox'))
+            .some(cb => cb.checked);
+        
+        document.getElementById('confirmReshelveBtn').disabled = !(hasSelectedShelf && hasSelectedBooks);
+        document.getElementById('destinationSection').style.display = hasSelectedBooks ? 'block' : 'none';
+    }
+</script>
+{% endblock %}
