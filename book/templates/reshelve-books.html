@@ -253,6 +253,9 @@
                     return;
                 }
 
+                // Sort books by title case-insensitively
+                books.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+
                 books.forEach(book => {
                     console.log('Processing book:', book);
                     const row = document.createElement('tr');
