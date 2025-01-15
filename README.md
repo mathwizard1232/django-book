@@ -58,6 +58,8 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
 
 ## Wishlist
+* Skip author confirmation on exact match
+* Skip Work confirmation on exact (or close enough; e.g. case-insensitive etc) match (? Then just shelving confirmation screen to close out in that case? Enter author -> title -> confirm shelf?)
 * Build out list / search of library: browse / find by author, etc
 * Better support for multiple author ids for same author in OpenLibrary
   * Maybe instead of primary / alternative, default to primary with a list of alternatives, then option to select a different author instead? (Basically, do some logic to detect if any multiple results are likely the same author or different and branch accordingly, but go to a default author and enter title rather than always require the extra step on new author)
