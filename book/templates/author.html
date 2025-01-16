@@ -26,6 +26,7 @@
     </div>
     <p>Please type in the name of the {{ is_editor|yesno:"editor,author" }} of the book.</p>
     <p>Once you have typed three characters, suggestions may appear.</p>
+    <p>Or <a href="{% url 'get_book_by_isbn' %}">add a book by ISBN</a> instead.</p>
     <form action="/author/" method="post">
         {% csrf_token %}
         {{ form }}
