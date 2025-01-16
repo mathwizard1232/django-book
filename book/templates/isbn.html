@@ -1,30 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container">
-    <h2>Add Book by ISBN</h2>
-    
+<div class="container bg-light p-4 rounded shadow-sm">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">Add Book by ISBN</h2>
+            <a href="{% url 'get_author' %}" class="btn btn-primary">
+                <i class="fas fa-user me-2"></i>Add by Author
+            </a>
+        </div>
+    </div>
+
     <div class="row">
-        <div class="col-md-6">
-            <form method="post">
-                {% csrf_token %}
+        <div class="col-md-8">
+            <div class="mb-4">
+                <p class="text-muted">Enter the ISBN from the book's barcode or copyright page</p>
                 
-                {% if form.isbn.errors %}
-                <div class="alert alert-danger">
-                    {{ form.isbn.errors }}
-                </div>
-                {% endif %}
-                
-                <div class="mb-3">
-                    {{ form.isbn.label_tag }}
-                    {{ form.isbn }}
-                    <div class="form-text">
-                        Enter either ISBN-10 or ISBN-13 format
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.isbn.errors %}
+                    <div class="alert alert-danger">
+                        {{ form.isbn.errors }}
                     </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">Look Up Book</button>
-                <a href="{% url 'index' %}" class="btn btn-outline-secondary">Cancel</a>
-            </form>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        {{ form.isbn.label_tag }}
+                        {{ form.isbn }}
+                        <div class="form-text text-muted">
+                            Enter either ISBN-10 or ISBN-13 format
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">Look Up Book</button>
+                        <a href="{% url 'index' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
