@@ -31,6 +31,17 @@ class TitleForm(forms.Form):
     title = forms.CharField(max_length=100,
         widget=forms.TextInput(attrs={'autofocus': 'autofocus'}))
 
+class TitleOnlyForm(forms.Form):
+    """Search for a book by title only"""
+    title = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'autofocus': 'autofocus',
+            'class': 'form-control',
+            'placeholder': 'Enter book title'
+        })
+    )
+
 class TitleGivenAuthorForm(forms.Form):
     """ Get a given title from a given author's works """
     author_name = forms.CharField(max_length=100,

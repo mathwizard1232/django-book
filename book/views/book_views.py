@@ -2,7 +2,7 @@ import logging
 import urllib.parse
 from django.http import HttpResponseRedirect, HttpResponseBadRequest
 from django.shortcuts import render
-from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook
+from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm
 from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
@@ -436,3 +436,70 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
                 raise Exception("no result")
 
     return results[:2]  # Keep only first two results
+
+def title_only_search(request):
+    """Search for a book by title only"""
+    if request.method == 'GET':
+        form = TitleOnlyForm()
+        return render(request, 'title-only.html', {'form': form})
+    
+    if request.method == 'POST':
+        form = TitleOnlyForm(request.POST)
+        if form.is_valid():
+            title = form.cleaned_data['title']
+            return _handle_title_only_search(request, title)
+    
+    return HttpResponseBadRequest('Invalid request')
+
+def _handle_title_only_search(request, title):
+    """Process title-only search and display results"""
+    ol = CachedOpenLibrary()
+    try:
+        # Search OpenLibrary with title only
+        results = ol.Work.search(title=title, limit=5)
+        
+        # Build forms for results
+        forms = []
+        for result in results:
+            display_title = result.title
+            work_olid = result.identifiers['olid'][0]
+            
+            # Check for existing work
+            existing_work = Work.objects.filter(olid=work_olid).first()
+            if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
+                context = {
+                    'work': existing_work,
+                    'form_data': {
+                        'title': display_title,
+                        'work_olid': work_olid,
+                        'author_names': result.authors[0]['name'] if result.authors else '',
+                        'author_olids': result.authors[0].get('olid', '') if result.authors else ''
+                    },
+                    'locations': Location.objects.all()
+                }
+                return render(request, 'confirm-duplicate.html', context)
+            
+            # Create form for this result
+            form_args = {
+                'title': display_title,
+                'work_olid': work_olid,
+                'author_names': ', '.join(a['name'] for a in result.authors) if result.authors else '',
+                'author_olids': ','.join(a.get('olid', '') for a in result.authors) if result.authors else ''
+            }
+            
+            forms.append(ConfirmBook(form_args))
+        
+        context = {
+            'forms': forms,
+            'locations': Location.objects.all(),
+            'title_url': 'title-only.html'
+        }
+        return render(request, 'confirm-book.html', context)
+        
+    except Exception as e:
+        logger.exception("Error during title-only search")
+        context = {
+            'error': str(e),
+            'form': TitleOnlyForm(initial={'title': title})
+        }
+        return render(request, 'title-only.html', context)
