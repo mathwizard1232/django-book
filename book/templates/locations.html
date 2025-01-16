@@ -1,139 +1,206 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Manage Locations</h2>
-
-<div class="row mb-4">
-    <div class="col-md-8">
-        <h3>Add New Location</h3>
-        <form method="post" id="locationForm">
-            {% csrf_token %}
-            
-            {{ form.entity_type.label_tag }}
-            {{ form.entity_type }}
-            
-            <div class="mt-3">
-                {{ form.name.label_tag }}
-                {{ form.name }}
-            </div>
-            
-            <div id="location-fields" class="mt-3" style="display: none;">
-                {{ form.type.label_tag }}
-                {{ form.type }}
-                {{ form.address.label_tag }}
-                {{ form.address }}
-            </div>
-            
-            <div id="room-fields" class="mt-3" style="display: none;">
-                {{ form.room_type.label_tag }}
-                {{ form.room_type }}
-                {{ form.floor.label_tag }}
-                {{ form.floor }}
-                {{ form.parent_location.label_tag }}
-                {{ form.parent_location }}
-            </div>
-            
-            <div id="bookcase-fields" class="mt-3" style="display: none;">
-                {{ form.shelf_count.label_tag }}
-                {{ form.shelf_count }}
-                {{ form.parent_room.label_tag }}
-                {{ form.parent_room }}
-            </div>
-            
-            <div id="shelf-fields" class="mt-3" style="display: none;">
-                {{ form.position.label_tag }}
-                {{ form.position }}
-                {{ form.parent_bookcase.label_tag }}
-                {{ form.parent_bookcase }}
-            </div>
-            
-            <div class="mt-3">
-                {{ form.notes.label_tag }}
-                {{ form.notes }}
-            </div>
-            
-            <button type="submit" class="btn btn-primary mt-3">Add Location</button>
-        </form>
+<div class="container bg-light p-4 rounded shadow-sm">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0">Manage Locations</h2>
+        </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-12">
-        <h3>Current Locations</h3>
-        {% if locations %}
-            <ul class="list-group">
-            {% for location in locations %}
-                <li class="list-group-item">
-                    <h4>{{ location.name }}</h4>
-                    <p>Type: {{ location.get_type_display }}</p>
-                    {% if location.address %}
-                        <p>Address: {{ location.address }}</p>
-                    {% endif %}
-                    
-                    {% for room in rooms %}
-                        {% if room.location_id == location.id %}
-                            {% if forloop.first %}
-                                <div class="ms-4">
-                                    <h5>Rooms:</h5>
-                                    <ul class="list-group">
-                            {% endif %}
-                            
-                            <li class="list-group-item">
-                                <p>{{ room.name }} ({{ room.get_type_display }})</p>
-                                
-                                {% for bookcase in bookcases %}
-                                    {% if bookcase.room_id == room.id %}
-                                        {% if forloop.first %}
-                                            <div class="ms-4">
-                                                <h6>Bookcases:</h6>
-                                                <ul class="list-group">
-                                        {% endif %}
-                                        
-                                        <li class="list-group-item">
-                                            {{ bookcase.name }} ({{ bookcase.shelf_count }} shelves)
-                                            <div class="ms-4">
-                                                <h6>Shelves:</h6>
-                                                <ul class="list-group">
-                                            {% for shelf in shelves %}
-                                                {% if shelf.bookcase_id == bookcase.id %}                                                    
-                                                    <li class="list-group-item">
-                                                        Shelf {{ shelf.position }}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" 
-                                                                onclick="showEditShelfNotesModal({{ shelf.id }}, '{{ shelf.notes|escapejs }}')">
-                                                            Edit Notes
-                                                        </button>
-                                                        {% if shelf.notes %}
-                                                            <br><small>{{ shelf.notes }}</small>
-                                                        {% endif %}
-                                                    </li>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </ul>
-                                    </div>
-                                        </li>
-                                        
-                                        {% if forloop.last %}
-                                                </ul>
-                                            </div>
-                                        {% endif %}
-                                    {% endif %}
-                                {% endfor %}
-                            </li>
-                            
-                            {% if forloop.last %}
-                                    </ul>
+    <!-- Add New Location Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Add New Location</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="locationForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.entity_type.label_tag }}
+                                    {{ form.entity_type }}
                                 </div>
-                            {% endif %}
-                        {% endif %}
-                    {% endfor %}
-                </li>
-            {% endfor %}
-            </ul>
-        {% else %}
-            <p>No locations defined yet.</p>
-        {% endif %}
+                                
+                                <div class="mb-3">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div id="location-fields" class="mb-3" style="display: none;">
+                                    <div class="mb-2">
+                                        {{ form.type.label_tag }}
+                                        {{ form.type }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ form.address.label_tag }}
+                                        {{ form.address }}
+                                    </div>
+                                </div>
+                                
+                                <div id="room-fields" class="mb-3" style="display: none;">
+                                    <div class="mb-2">
+                                        {{ form.room_type.label_tag }}
+                                        {{ form.room_type }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ form.floor.label_tag }}
+                                        {{ form.floor }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ form.parent_location.label_tag }}
+                                        {{ form.parent_location }}
+                                    </div>
+                                </div>
+                                
+                                <div id="bookcase-fields" class="mb-3" style="display: none;">
+                                    <div class="mb-2">
+                                        {{ form.shelf_count.label_tag }}
+                                        {{ form.shelf_count }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ form.parent_room.label_tag }}
+                                        {{ form.parent_room }}
+                                    </div>
+                                </div>
+                                
+                                <div id="shelf-fields" class="mb-3" style="display: none;">
+                                    <div class="mb-2">
+                                        {{ form.position.label_tag }}
+                                        {{ form.position }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ form.parent_bookcase.label_tag }}
+                                        {{ form.parent_bookcase }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.notes.label_tag }}
+                                    {{ form.notes }}
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Add Location
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Locations Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Current Locations</h3>
+                </div>
+                <div class="card-body">
+                    {% if locations %}
+                        <div class="location-tree">
+                        {% for location in locations %}
+                            <div class="location-item mb-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-building me-2"></i>
+                                    <h4 class="h6 mb-0">{{ location.name }}</h4>
+                                </div>
+                                <div class="ms-4">
+                                    <p class="text-muted small mb-2">Type: {{ location.get_type_display }}</p>
+                                    {% if location.address %}
+                                        <p class="text-muted small mb-2">Address: {{ location.address }}</p>
+                                    {% endif %}
+                                    
+                                    {% for room in rooms %}
+                                        {% if room.location_id == location.id %}
+                                            {% if forloop.first %}
+                                                <div class="room-section mt-3">
+                                                    <h5 class="h6 mb-2">Rooms</h5>
+                                            {% endif %}
+                                            
+                                            <div class="room-item ms-3 mb-3">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <i class="fas fa-door-open me-2"></i>
+                                                    <span>{{ room.name }} ({{ room.get_type_display }})</span>
+                                                </div>
+                                                
+                                                {% for bookcase in bookcases %}
+                                                    {% if bookcase.room_id == room.id %}
+                                                        {% if forloop.first %}
+                                                            <div class="bookcase-section ms-3 mt-2">
+                                                                <h6 class="mb-2">Bookcases</h6>
+                                                        {% endif %}
+                                                        
+                                                        <div class="bookcase-item ms-3 mb-3">
+                                                            <div class="d-flex align-items-center mb-2">
+                                                                <i class="fas fa-bookmark me-2"></i>
+                                                                <span>{{ bookcase.name }} ({{ bookcase.shelf_count }} shelves)</span>
+                                                            </div>
+                                                            
+                                                            <div class="shelf-section ms-3">
+                                                                <h6 class="small mb-2">Shelves</h6>
+                                                                <div class="shelf-list ms-3">
+                                                                {% for shelf in shelves %}
+                                                                    {% if shelf.bookcase_id == bookcase.id %}
+                                                                        <div class="shelf-item mb-2">
+                                                                            <div class="d-flex align-items-center">
+                                                                                <i class="fas fa-level-up-alt fa-rotate-90"></i>&nbsp;&nbsp;
+                                                                                <span>Shelf {{ shelf.position }}</span>
+                                                                                <button type="button" 
+                                                                                        class="btn btn-sm btn-outline-secondary ms-2" 
+                                                                                        onclick="showEditShelfNotesModal({{ shelf.id }}, '{{ shelf.notes|escapejs }}')">
+                                                                                    <i class="fas fa-edit"></i>
+                                                                                </button>
+                                                                            </div>
+                                                                            {% if shelf.notes %}
+                                                                                <div class="ms-4 mt-1">
+                                                                                    <small class="text-muted">{{ shelf.notes }}</small>
+                                                                                </div>
+                                                                            {% endif %}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {% if forloop.last %}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                            
+                                            {% if forloop.last %}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">No locations defined yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
+<!-- Modals -->
 <div class="modal fade" id="addShelfModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
