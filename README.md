@@ -56,6 +56,7 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
 * Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
+* Need to be able to edit/delete Locations through UI
 
 ## Wishlist
 * Skip author confirmation on exact match
