@@ -1,4 +1,5 @@
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from .base_page import BasePage
 
 class AuthorPage(BasePage):
@@ -14,6 +15,11 @@ class AuthorPage(BasePage):
 
     def search_author(self, author_name):
         """Search for an author."""
+        # Wait for autocomplete to be initialized
+        self.wait.until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'basicAutoComplete'))
+        )
+        
         search_box = self.find_element(*self.search_input)
         search_box.clear()
         search_box.send_keys(author_name)
@@ -23,10 +29,56 @@ class AuthorPage(BasePage):
         results = self.driver.find_elements(*self.search_results)
         return [result.text for result in results]
 
-    def select_author(self, author_name):
-        """Select an author from the results."""
+    def select_local_author(self, author_name):
+        """Select a local author from the dropdown (bypasses confirmation)."""
+        print(f"\nStarting local author selection for: {author_name}")
+        
+        # Wait for dropdown items to appear
+        self.wait.until(
+            EC.presence_of_all_elements_located(self.search_results)
+        )
+        
+        # Find and click the result
         results = self.driver.find_elements(*self.search_results)
+        print(f"Found {len(results)} dropdown items")
+        print(f"Dropdown texts: {[r.text for r in results]}")
+        
         for result in results:
             if author_name in result.text:
-                result.click()
-                break 
+                print(f"Found matching result: {result.text}")
+                print("Current URL before click:", self.driver.current_url)
+                self.driver.execute_script("arguments[0].click();", result)
+                
+                # Find and submit the form
+                form = self.find_element(By.CSS_SELECTOR, 'form[action="/author/"]')
+                submit_button = form.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+                submit_button.click()
+                
+                print("Current URL after form submit:", self.driver.current_url)
+                break
+        else:
+            print(f"WARNING: No match found for {author_name}")
+            
+        # Wait for redirect to title page
+        print("Waiting for redirect to /title")
+        try:
+            self.wait.until(
+                EC.url_contains('/title')
+            )
+            print("Successfully redirected to:", self.driver.current_url)
+        except Exception as e:
+            print("Failed to redirect. Current URL:", self.driver.current_url)
+            print("Page source:", self.driver.page_source[:500])
+            raise
+
+    def confirm_new_author(self):
+        """Confirm a new author on the confirmation page."""
+        submit_button = self.wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "input.btn.btn-primary"))
+        )
+        submit_button.click()
+        
+        # Wait for redirect to title page
+        self.wait.until(
+            EC.url_contains('/title')
+        ) 
