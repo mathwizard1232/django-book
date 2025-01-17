@@ -35,7 +35,12 @@
                 <div class="card-body">
                     <ul class="list-unstyled">
                     {% for author in authors %}
-                        <li>{{ author.primary_name }}</li>
+                        <li>
+                            {{ author.primary_name }}
+                            {% if author.work_count %}
+                                ({{ author.work_count }} work{{ author.work_count|pluralize }})
+                            {% endif %}
+                        </li>
                     {% empty %}
                         <li>No authors in library</li>
                     {% endfor %}

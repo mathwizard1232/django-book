@@ -14,6 +14,10 @@ def list(request):
         key=lambda x: x.primary_name.split()[-1].lower()
     )
     
+    # Add work count to each author
+    for author in authors_with_works:
+        author.work_count = author.work_set.count() + author.edited_works.count()
+    
     # Calculate statistics
     total_authors = len(authors_with_works)
     total_copies = Copy.objects.count()
