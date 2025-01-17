@@ -78,3 +78,43 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Better handling of no result in confirm book
 * Split out base and autocomplete-base templates
 * Book valuation external sources & logic
+* Build out some end-to-end tests to help avoid regressions from refactors etc
+
+## Testing
+LibraCents uses end-to-end testing with Selenium WebDriver to ensure core functionality remains intact during development.
+
+### Test Requirements
+```bash
+pip install -r requirements-test.txt
+```
+
+### Running Tests
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest book/tests/test_author_search.py
+
+# Run tests with more detailed output
+pytest -v
+
+# Run tests and show print statements
+pytest -s
+```
+
+### Test Structure
+- `book/tests/conftest.py` - Test configuration and fixtures
+- `book/tests/pages/` - Page Object Models for test maintainability
+  - `base_page.py` - Common page functionality
+  - `author_page.py` - Author search and selection
+- `book/tests/test_*.py` - Test implementations
+
+### Writing Tests
+Tests use the Page Object pattern to maintain separation between test logic and page implementation details. New tests should:
+1. Create appropriate page objects in `book/tests/pages/`
+2. Use fixtures from `conftest.py` for common setup
+3. Mock external API calls (especially OpenLibrary)
+4. Follow existing patterns for consistent test structure
+
+See `book/tests/test-plan.md` for complete test coverage goals and implementation priorities.
