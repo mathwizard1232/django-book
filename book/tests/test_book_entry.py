@@ -6,6 +6,7 @@ from book.models.author import Author
 from book.models.work import Work
 from book.tests.pages.author_page import AuthorPage
 from book.tests.pages.book_page import BookPage
+from book.tests.pages.isbn_page import ISBNPage
 
 @pytest.mark.django_db
 class TestBasicBookEntry:
@@ -57,6 +58,45 @@ class TestBasicBookEntry:
         assert 'added new work' in book_page.get_success_message().lower()
         assert 'test book' in book_page.get_success_message().lower()
 
-        # Verify next action links
-        # These expectations are wrong; need to fix but taking the rest of the test for now
- #       book_page.verify_next_actions("Test Author") 
+@pytest.mark.django_db
+class TestISBNEntry:
+    def test_basic_isbn_entry(self, browser, requests_mock):
+        """Test entering a book via ISBN lookup."""
+        
+        # Mock OpenLibrary ISBN search response
+        mock_search_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'author_name': ['Test Author'],
+                'author_key': ['OL123A'],
+                'first_publish_year': 2023,
+                'publisher': ['Signet Classics']
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?isbn=0451528557',
+            json=mock_search_response
+        )
+        
+        # Create test author in database
+        author = Author.objects.create(
+            primary_name="Test Author",
+            search_name="test author",
+            olid="OL123A"
+        )
+        
+        # Start ISBN entry
+        isbn_page = ISBNPage(browser)
+        isbn_page.navigate()
+        isbn_page.enter_isbn("0451528557")
+        isbn_page.confirm_isbn()
+        
+        # Verify book was created
+        work = Work.objects.filter(title="Test Book").first()
+        assert work is not None
+        assert work.authors.first() == author
+        
+        # Verify success message
+        assert 'added new work' in isbn_page.get_success_message().lower()
+        assert 'test book' in isbn_page.get_success_message().lower()
