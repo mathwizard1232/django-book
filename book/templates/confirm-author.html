@@ -30,6 +30,13 @@
                 {{ form.search_name }}
                 
                 <input type="hidden" name="author_role" value="{{ form.author_role.value }}">
+                {% if request.session.collection_first_work %}
+                    <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
+                    <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
+                    <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
+                    <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
+                    <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
+                {% endif %}
                 
                 <div class="text-center mt-3">
                     <input type="submit" value="Confirm primary author result" class="btn btn-primary" autofocus>
@@ -66,6 +73,13 @@
                 {{ form2.search_name }}
                 
                 <input type="hidden" name="author_role" value="{{ form2.author_role.value }}">
+                {% if request.session.collection_first_work %}
+                    <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
+                    <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
+                    <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
+                    <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
+                    <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
+                {% endif %}
                 
                 <div class="text-center mt-3">
                     <input type="submit" value="Select alternate suggestion" class="btn btn-secondary">

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from .author_views import get_author, confirm_author
-from .book_views import get_title, confirm_book, title_only_search
+from .book_views import get_title, confirm_book, title_only_search, start_collection, cancel_collection
 from .isbn_views import get_book_by_isbn
 from .location_views import (
     manage_locations,
@@ -49,4 +49,5 @@ __all__ = [
     'get_books_by_location',
     'get_shelf_books',
     'title_only_search',
+    'start_collection'
 ]

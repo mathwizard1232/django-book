@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% load book_tags %}
+{% block content %}
+<div class="container">
+    <h2>Confirm Collection Details</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Collection Contents</h3>
+        </div>
+        <div class="card-body">
+            <form action="{% url 'confirm_book' %}" method="post">
+                {% csrf_token %}
+                
+                <!-- First Work -->
+                <div class="mb-4">
+                    <h4>First Work</h4>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-control" value="{{ first_work.title }}" readonly>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Author(s)</label>
+                        {% with author_names=first_work.author_names|split:',' %}
+                            {% for author_name in author_names %}
+                                <input type="text" class="form-control mb-2" value="{{ author_name }}" readonly>
+                            {% endfor %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <!-- Second Work -->
+                <div class="mb-4">
+                    <h4>Second Work</h4>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-control" value="{{ second_work.title }}" readonly>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Author(s)</label>
+                        {% with author_names=second_work.author_names|split:',' %}
+                            {% for author_name in author_names %}
+                                <input type="text" class="form-control mb-2" value="{{ author_name }}" readonly>
+                            {% endfor %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <!-- Collection Title -->
+                <div class="form-group mb-4">
+                    <label>Collection Title</label>
+                    <input type="text" class="form-control" name="title" 
+                           value="{{ first_work.title }} and {{ second_work.title }}">
+                </div>
+
+                <!-- Hidden fields for both works -->
+                <input type="hidden" name="first_work_olid" value="{{ first_work.work_olid }}">
+                <input type="hidden" name="first_work_author_names" value="{{ first_work.author_names }}">
+                <input type="hidden" name="first_work_author_olids" value="{{ first_work.author_olids }}">
+                
+                <input type="hidden" name="second_work_olid" value="{{ second_work.work_olid }}">
+                <input type="hidden" name="second_work_author_names" value="{{ second_work.author_names }}">
+                <input type="hidden" name="second_work_author_olids" value="{{ second_work.author_olids }}">
+
+                <!-- Required fields for work creation -->
+                <input type="hidden" name="work_olid" value="{{ first_work.work_olid }}">
+                <input type="hidden" name="author_names" value="{{ first_work.author_names }}">
+                <input type="hidden" name="author_olids" value="{{ first_work.author_olids }}">
+                <input type="hidden" name="publisher" value="Various">
+
+                <!-- Location selection -->
+                {% include "includes/location-selector.html" %}
+
+                <div class="d-flex gap-2 mt-4">
+                    <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
+                    <input type="submit" name="action" value="Confirm and Shelve" 
+                           class="btn btn-primary shelve-button" disabled>
+                    <a href="{% url 'cancel_collection' %}" class="btn btn-outline-danger">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Include shelf selection JavaScript -->
+<script>
+    // Store last used selections
+    let lastUsedBookcase = localStorage.getItem('lastUsedBookcase');
+    let lastUsedShelf = localStorage.getItem('lastUsedShelf');
+
+    console.log('Script starting...');
+
+    // Add event listeners when the document loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM Content Loaded');
+        
+        // Log all select elements to see what's available
+        console.log('All selects:', document.querySelectorAll('select'));
+        
+        const locationSelect = document.getElementById('_location');
+        const roomSelect = document.getElementById('_room');
+        const bookcaseSelect = document.getElementById('_bookcase');
+        const shelfSelect = document.getElementById('_shelf');
+        
+        console.log('Found elements:', {
+            locationSelect,
+            roomSelect,
+            bookcaseSelect,
+            shelfSelect
+        });
+
+        // Add event listeners for location selection
+        if (locationSelect) {
+            locationSelect.addEventListener('change', function() {
+                console.log('Location changed:', this.value);
+                loadRooms(this.value);
+            });
+
+            // Auto-select single location if it's the only option
+            if (locationSelect.options.length === 2) {
+                console.log('Auto-selecting single location');
+                locationSelect.selectedIndex = 1;
+                loadRooms(locationSelect.value);
+            }
+        }
+
+        // Add event listeners for room selection
+        if (roomSelect) {
+            roomSelect.addEventListener('change', function() {
+                console.log('Room changed:', this.value);
+                loadBookcases(this.value);
+            });
+        }
+
+        // Add event listeners for bookcase selection
+        if (bookcaseSelect) {
+            bookcaseSelect.addEventListener('change', function() {
+                console.log('Bookcase changed:', this.value);
+                loadShelves(this.value);
+                if (this.value) {
+                    localStorage.setItem('lastUsedBookcase', this.value);
+                }
+            });
+        }
+
+        // Add event listeners for shelf selection
+        if (shelfSelect) {
+            shelfSelect.addEventListener('change', function() {
+                console.log('Shelf changed:', this.value);
+                if (this.value) {
+                    localStorage.setItem('lastUsedShelf', this.value);
+                    displayShelfNotes(this.value);
+                } else {
+                    document.getElementById('shelfNotesDisplay').style.display = 'none';
+                }
+                updateShelveButton();
+            });
+        }
+    });
+
+    function loadRooms(locationId) {
+        console.log('Loading rooms for location:', locationId);
+        if (!locationId) {
+            disableSelect('_room');
+            disableSelect('_bookcase');
+            disableSelect('_shelf');
+            return;
+        }
+
+        fetch(`/api/rooms/${locationId}`)
+            .then(response => response.json())
+            .then(rooms => {
+                console.log('Rooms loaded:', rooms);
+                updateSelect('_room', rooms);
+                // Auto-select if single room
+                const roomSelect = document.getElementById('_room');
+                if (roomSelect.options.length === 2) {
+                    roomSelect.selectedIndex = 1;
+                    loadBookcases(roomSelect.value);
+                }
+            })
+            .catch(error => console.error('Error loading rooms:', error));
+    }
+
+    function loadBookcases(roomId) {
+        console.log('Loading bookcases for room:', roomId);
+        if (!roomId) {
+            disableSelect('_bookcase');
+            disableSelect('_shelf');
+            return;
+        }
+
+        fetch(`/api/bookcases/${roomId}`)
+            .then(response => response.json())
+            .then(bookcases => {
+                console.log('Bookcases loaded:', bookcases);
+                updateSelect('_bookcase', bookcases);
+                if (lastUsedBookcase) {
+                    const bookcaseSelect = document.getElementById('_bookcase');
+                    bookcaseSelect.value = lastUsedBookcase;
+                    if (bookcaseSelect.value) {
+                        loadShelves(lastUsedBookcase);
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading bookcases:', error));
+    }
+
+    function loadShelves(bookcaseId) {
+        console.log('Loading shelves for bookcase:', bookcaseId);
+        if (!bookcaseId) {
+            disableSelect('_shelf');
+            return;
+        }
+
+        fetch(`/api/shelves/${bookcaseId}`)
+            .then(response => response.json())
+            .then(shelves => {
+                console.log('Shelves loaded:', shelves);
+                updateSelect('_shelf', shelves);
+                if (lastUsedShelf) {
+                    const shelfSelect = document.getElementById('_shelf');
+                    shelfSelect.value = lastUsedShelf;
+                    if (shelfSelect.value) {
+                        displayShelfNotes(lastUsedShelf);
+                        updateShelveButton();
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading shelves:', error));
+    }
+
+    function updateSelect(elementId, options) {
+        console.log('Updating select:', elementId);
+        const select = document.getElementById(elementId);
+        select.disabled = false;
+        select.innerHTML = '<option value="">Select...</option>';
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.id;
+            option.textContent = opt.name;
+            option.shelf = opt;
+            select.appendChild(option);
+        });
+    }
+
+    function disableSelect(elementId) {
+        console.log('Disabling select:', elementId);
+        const select = document.getElementById(elementId);
+        select.disabled = true;
+        select.innerHTML = '<option value="">Select...</option>';
+    }
+
+    function displayShelfNotes(shelfId) {
+        console.log('Displaying notes for shelf:', shelfId);
+        const shelfSelect = document.getElementById('_shelf');
+        const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
+        const display = document.getElementById('_shelfNotesDisplay');
+        if (shelf && shelf.notes) {
+            const notesElement = document.getElementById('_shelfNotes');
+            if (notesElement) {
+                notesElement.textContent = shelf.notes;
+                display.style.display = 'block';
+            }
+        } else {
+            display.style.display = 'none';
+        }
+    }
+
+    function updateShelveButton() {
+        const shelfSelect = document.getElementById('_shelf');
+        const shelveButton = document.querySelector('.shelve-button');
+        if (shelveButton && shelfSelect) {
+            console.log('Updating shelve button. Shelf value:', shelfSelect.value);
+            shelveButton.disabled = !shelfSelect.value;
+        }
+    }
+</script>
+
+<!-- Existing script block continues... -->
+{% endblock %} 

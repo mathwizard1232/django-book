@@ -50,6 +50,10 @@ def confirm_book(request):
 
 def _handle_book_confirmation(request):
     """Process the confirmed book selection and create local records"""
+    # Check if we're creating a collection
+    if 'collection_first_work' in request.session:
+        return _handle_collection_confirmation(request)
+        
     # Add logging at the start
     logger.info("Processing book confirmation with POST data:")
     logger.info("is_multivolume: %s", request.POST.get('is_multivolume'))
@@ -302,6 +306,13 @@ def _handle_book_search(request):
     
     context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
 
+    # Check if we're in collection mode
+    if 'collection_first_work' in request.session:
+        context['first_work'] = request.session['collection_first_work']
+        template = 'confirm-collection.html'
+    else:
+        template = 'confirm-book.html'
+
     # Handle local autocomplete results
     if DIVIDER in search_title:
         title, olid = search_title.split(DIVIDER)
@@ -321,7 +332,7 @@ def _handle_book_search(request):
         context['form'] = ConfirmBook(args)
         return HttpResponseRedirect('/author')
 
-    # Search OpenLibrary
+    # Search OpenLibrary and build forms
     results = _search_openlibrary(ol, search_title, args.get('author_olid'), args.get('author_name'))
     
     # Build forms for results
@@ -369,12 +380,22 @@ def _handle_book_search(request):
         logger.info("Author OLIDs from form_args: %s", form_args.get('author_olids'))
         
         forms.append(ConfirmBook(form_args))
+        
+        # If this is the first result and we're in collection mode, add it as second_work
+        if 'collection_first_work' in request.session and len(forms) == 1:
+            context['second_work'] = {
+                'title': result.title,
+                'work_olid': result.identifiers['olid'][0],
+                'author_names': result.authors[0]['name'] if result.authors else '',
+                'author_olids': result.authors[0].get('olid', '') if result.authors else '',
+                'publisher': result.publisher[0] if hasattr(result, 'publisher') and result.publisher else 'Unknown'
+            }
 
     # Add locations to context for the template
     context['locations'] = Location.objects.all()
     context['forms'] = forms
     
-    return render(request, 'confirm-book.html', context)
+    return render(request, template, context)
 
 def _search_openlibrary(ol, title, author_olid=None, author_name=None):
     """Search OpenLibrary for works matching title and author"""
@@ -503,3 +524,122 @@ def _handle_title_only_search(request, title):
             'form': TitleOnlyForm(initial={'title': title})
         }
         return render(request, 'title-only.html', context)
+
+def start_collection(request):
+    """Convert a single Work confirmation into a Collection creation flow"""
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+        
+    # Store the first work's details in session
+    request.session['collection_first_work'] = {
+        'title': request.POST.get('title'),
+        'work_olid': request.POST.get('work_olid'),
+        'author_names': request.POST.get('author_names'),
+        'author_olids': request.POST.get('author_olids'),
+        'publisher': request.POST.get('publisher'),
+    }
+    
+    # Redirect to author selection for second work
+    return HttpResponseRedirect('/author/')
+
+def cancel_collection(request):
+    """Cancel collection creation and clear session data"""
+    if 'collection_first_work' in request.session:
+        del request.session['collection_first_work']
+    return HttpResponseRedirect('/author/')
+
+def _handle_collection_confirmation(request):
+    """Handle the confirmation of a second work to create a collection"""
+    # Add logging at the start
+    logger.info("Processing collection confirmation with POST data:")
+    logger.info("First work from session: %s", request.session['collection_first_work'])
+    logger.info("Second work title: %s", request.POST.get('title'))
+    logger.info("Second work OLID: %s", request.POST.get('work_olid'))
+    logger.info("Second work author names: %s", request.POST.get('author_names'))
+    logger.info("Second work author OLIDs: %s", request.POST.get('author_olids'))
+    logger.info("Second work publisher: %s", request.POST.get('publisher'))
+    logger.info("Action: %s", request.POST.get('action'))
+    logger.info("Shelf ID: %s", request.POST.get('shelf'))
+    
+    # Get the first work's details from session
+    first_work = request.session['collection_first_work']
+    
+    # Get the second work's details from POST
+    second_work = {
+        'title': request.POST.get('title'),
+        'work_olid': request.POST.get('work_olid'),
+        'author_names': request.POST.get('author_names'),
+        'author_olids': request.POST.get('author_olids'),
+        'publisher': request.POST.get('publisher'),
+    }
+    
+    # Create the collection work
+    collection_title = f"{first_work['title']} and {second_work['title']}"
+    collection = Work.objects.create(
+        title=collection_title,
+        search_name=collection_title,
+        type='COLLECTION'
+    )
+    
+    # Create and link the component works
+    works_to_create = [first_work, second_work]
+    for work_data in works_to_create:
+        # Create or get the component work
+        work = Work.objects.filter(olid=work_data['work_olid']).first()
+        if not work:
+            work = Work.objects.create(
+                olid=work_data['work_olid'],
+                title=work_data['title'],
+                search_name=work_data['title'],
+                type='NOVEL'
+            )
+            
+            # Add authors
+            for olid, name in zip(work_data['author_olids'].split(','), 
+                                work_data['author_names'].split(',')):
+                if olid:
+                    author = Author.objects.get_or_fetch(olid)
+                    if author:
+                        work.authors.add(author)
+        
+        # Link to collection
+        collection.component_works.add(work)
+    
+    # Create edition and copy
+    edition = Edition.objects.create(
+        work=collection,
+        publisher="Various" if first_work['publisher'] != second_work['publisher'] else first_work['publisher'],
+        format="PAPERBACK"
+    )
+    
+    # Handle shelving if requested
+    copy_data = {
+        'edition': edition,
+        'condition': "GOOD"
+    }
+    
+    action = request.POST.get('action', 'Confirm Without Shelving')
+    if action == 'Confirm and Shelve':
+        shelf_id = request.POST.get('shelf')
+        if shelf_id:
+            shelf = Shelf.objects.get(id=shelf_id)
+            copy_data.update({
+                'shelf': shelf,
+                'location': shelf.bookcase.get_location(),
+                'room': shelf.bookcase.room,
+                'bookcase': shelf.bookcase
+            })
+    
+    Copy.objects.create(**copy_data)
+    
+    # Clear the session data
+    del request.session['collection_first_work']
+    
+    # Create appropriate message
+    if action == 'Confirm and Shelve' and shelf_id:
+        location_path = f"{shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+        message = f"new_copy_shelved&title={urllib.parse.quote(collection_title)}&location={urllib.parse.quote(location_path)}"
+    else:
+        message = f"new_work&title={urllib.parse.quote(collection_title)}"
+    
+    return HttpResponseRedirect(f'/author/?message={message}')
