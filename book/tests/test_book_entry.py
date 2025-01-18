@@ -74,6 +74,7 @@ class TestBasicBookEntry:
         # Handle title entry
         book_page = BookPage(browser)
         book_page.enter_title("Test Book")
+        book_page.submit_title_form()
         book_page.confirm_title()
 
         # Verify book was created
