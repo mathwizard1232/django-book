@@ -125,6 +125,7 @@ class TestBasicBookEntry:
         # Handle title entry
         book_page = BookPage(browser)
         book_page.enter_title("Original Test Book")
+        book_page.submit_title_form()
         
         # Modify the title on confirmation page
         modified_title = "Modified Test Book"

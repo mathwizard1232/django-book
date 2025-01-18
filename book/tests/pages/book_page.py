@@ -32,17 +32,16 @@ class BookPage(BasePage):
         title_field.clear()
         title_field.send_keys(title)
         
-    def confirm_title(self):
-        """Click the title confirmation button and handle the confirmation page."""
-        print("\nStarting title confirmation")
-        
-        # First submit the title form
+    def submit_title_form(self):
+        """Submit the initial title form to get to the confirmation page."""
+        print("\nSubmitting title form")
         confirm = self.find_clickable(*self.confirm_button)
         print(f"Found title submit button: {confirm.get_attribute('value')}")
         confirm.click()
         print("Clicked title submit button")
-        
-        # Now we should be on confirm-book.html
+
+    def confirm_title(self):
+        """Click the final confirmation button."""
         # Wait for and click the confirm without shelving button
         confirm_final = self.find_clickable(*self.confirm_without_shelving)
         print("Found final confirm button")

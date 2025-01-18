@@ -50,6 +50,11 @@ def confirm_book(request):
 
 def _handle_book_confirmation(request):
     """Process the confirmed book selection and create local records"""
+    # Add detailed POST data logging
+    logger.info("Raw POST data:")
+    for key, value in request.POST.items():
+        logger.info("  %s: %s", key, value)
+
     # Check if we're creating a collection
     if 'collection_first_work' in request.session:
         return _handle_collection_confirmation(request)
@@ -82,13 +87,15 @@ def _handle_book_confirmation(request):
             }
             return render(request, 'confirm-duplicate.html', context)
         
-    # Get other required fields from POST
+    # Get the user's submitted title from POST
     display_title = request.POST.get('title')
     # Strip any volume number from the title
     clean_title = Work.strip_volume_number(display_title)
     publisher = request.POST.get('publisher')
-    search_title = request.POST.get('title', display_title)
     
+    # Use the user's submitted title for search_name too
+    search_name = clean_title.lower()
+
     # Handle multi-volume works
     is_multivolume = request.POST.get('is_multivolume') == 'on'
     entry_type = request.POST.get('entry_type')
@@ -134,7 +141,7 @@ def _handle_book_confirmation(request):
         work = Work.objects.create(
             olid=work_olid,
             title=clean_title,
-            search_name=search_title,
+            search_name=search_name,
             type='NOVEL',
         )
         
@@ -166,7 +173,7 @@ def _handle_book_confirmation(request):
         logger.info("Work editors: %s", [e.primary_name for e in work.editors.all()])
 
         logger.info("Added new Work %s (%s) AKA %s with %d authors/editors", 
-                   clean_title, work_olid, search_title, len(author_olids))
+                   clean_title, work_olid, search_name, len(author_olids))
     else:
         work = work_qs[0]
 
@@ -192,7 +199,7 @@ def _handle_book_confirmation(request):
                 authors=authors,
                 editors=editors,
                 olid=work_olid,
-                search_name=search_title,
+                search_name=search_name,
                 type='NOVEL'
             )
         elif entry_type == 'SINGLE':
@@ -202,7 +209,7 @@ def _handle_book_confirmation(request):
                 authors=authors,
                 editors=editors,
                 olid=work_olid,
-                search_name=search_title,
+                search_name=search_name,
                 type='NOVEL'
             )
             volumes = [volume]
@@ -214,7 +221,7 @@ def _handle_book_confirmation(request):
                 authors=authors,
                 editors=editors,
                 olid=work_olid,
-                search_name=search_title,
+                search_name=search_name,
                 type='NOVEL'
             )
 
