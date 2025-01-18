@@ -67,3 +67,12 @@ class BookPage(BasePage):
         # Find link for same author
         same_author_text = f"Add another book by {author_name}"
         assert self.is_element_present(By.PARTIAL_LINK_TEXT, same_author_text) 
+        
+    def modify_title_on_confirm(self, new_title):
+        """Modify the title on the confirmation page."""
+        # Wait for the title input field to be present
+        title_input = self.wait.until(
+            EC.presence_of_element_located((By.NAME, 'title'))
+        )
+        title_input.clear()
+        title_input.send_keys(new_title) 

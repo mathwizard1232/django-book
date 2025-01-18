@@ -35,6 +35,33 @@ class TestBasicBookEntry:
             json=mock_work_response
         )
 
+        # Mock OpenLibrary API responses with original title
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'Original Test Book',
+                'author_name': ['Test Author'],
+                'author_key': ['OL123A'],
+                'first_publish_year': 2023
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Original+Test+Book&author=OL123A',
+            json=mock_work_response
+        )
+
+        # Mock the search that happens during title modification
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL123A&title=Modified+Test+Book&limit=2',
+            json=mock_work_response
+        )
+
+        # Mock the initial title search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL123A&title=Original+Test+Book&limit=2',
+            json=mock_work_response
+        )
+
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()
@@ -57,6 +84,63 @@ class TestBasicBookEntry:
         # Verify success message
         assert 'added new work' in book_page.get_success_message().lower()
         assert 'test book' in book_page.get_success_message().lower()
+
+    def test_modified_title_book_entry(self, browser, requests_mock):
+        """Test that modifying a title during confirmation saves the modified title."""
+        
+        # Create test author in database
+        author = Author.objects.create(
+            primary_name="Test Author",
+            search_name="test author",
+            olid="OL123A"
+        )
+
+        # Mock OpenLibrary API responses with original title
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'Original Test Book',
+                'author_name': ['Test Author'],
+                'author_key': ['OL123A'],
+                'first_publish_year': 2023
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Original+Test+Book&author=OL123A',
+            json=mock_work_response
+        )
+
+        # Mock the search that happens during title modification
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL123A&title=Modified+Test+Book&limit=2',
+            json=mock_work_response
+        )
+
+        # Start author search and selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Test")
+        author_page.select_local_author("Test Author")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("Original Test Book")
+        
+        # Modify the title on confirmation page
+        modified_title = "Modified Test Book"
+        book_page.modify_title_on_confirm(modified_title)
+        book_page.confirm_title()
+
+        # Verify book was created with modified title
+        work = Work.objects.filter(title="Modified Test Book").first()
+        assert work is not None
+        assert work.title == "Modified Test Book"
+        assert work.authors.first() == author
+        assert work.olid == "OL123W"  # Original OpenLibrary ID should be preserved
+
+        # Verify success message
+        assert 'added new work' in book_page.get_success_message().lower()
+        assert 'modified test book' in book_page.get_success_message().lower()
 
 @pytest.mark.django_db
 class TestISBNEntry:
