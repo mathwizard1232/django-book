@@ -204,11 +204,11 @@ class TestCollectionBookEntry:
             olid="OL456A"
         )
 
-        # Mock OpenLibrary API responses for both works
+        # Mock OpenLibrary API responses - note these return different combined works
         flame_response = {
             'docs': [{
                 'key': '/works/OL123W',
-                'title': 'The Flame of Iridar',
+                'title': 'The Flame of Iridar and Peril of the Starmen',
                 'author_name': ['Lin Carter'],
                 'author_key': ['OL123A'],
                 'first_publish_year': 1967
@@ -217,14 +217,14 @@ class TestCollectionBookEntry:
         peril_response = {
             'docs': [{
                 'key': '/works/OL456W',
-                'title': 'Peril of the Starmen',
+                'title': 'Peril of the Starmen & The Forgotten Planet',
                 'author_name': ['Kris Neville'],
                 'author_key': ['OL456A'],
                 'first_publish_year': 1967
             }]
         }
         
-        # Mock the API calls
+        # Mock the API calls - each search returns its own combined work
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL123A&title=The+Flame+of+Iridar&limit=2',
             json=flame_response
@@ -292,3 +292,108 @@ class TestCollectionBookEntry:
         # We don't need to check for the exact message, just that it's a success message
         # Later we may have a more specific message for collections
         assert 'added new work' in book_page.get_success_message().lower()
+
+    def test_modified_titles_collection_entry(self, browser, requests_mock):
+        """Test that modifying individual work titles during collection creation saves correctly."""
+        
+        # Create test authors in database
+        carter = Author.objects.create(
+            primary_name="Lin Carter",
+            search_name="lin carter",
+            olid="OL123A"
+        )
+        neville = Author.objects.create(
+            primary_name="Kris Neville",
+            search_name="kris neville",
+            olid="OL456A"
+        )
+
+        # Mock OpenLibrary API responses - note these return different combined works
+        flame_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Flame of Iridar and Peril of the Starmen',
+                'author_name': ['Lin Carter'],
+                'author_key': ['OL123A'],
+                'first_publish_year': 1967
+            }]
+        }
+        peril_response = {
+            'docs': [{
+                'key': '/works/OL456W',
+                'title': 'Peril of the Starmen & The Forgotten Planet',
+                'author_name': ['Kris Neville'],
+                'author_key': ['OL456A'],
+                'first_publish_year': 1967
+            }]
+        }
+        
+        # Mock the API calls - each search returns its own combined work
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL123A&title=The+Flame+of+Iridar&limit=2',
+            json=flame_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL456A&title=Peril+of+the+Starmen&limit=2',
+            json=peril_response
+        )
+
+        # Start with first work's author and title
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Lin Carter")
+        author_page.select_local_author("Lin Carter")
+
+        # Enter first work's title - note we search for just the first title
+        book_page = BookPage(browser)
+        book_page.enter_title("The Flame of Iridar")
+        book_page.submit_title_form()
+        book_page.modify_title_on_confirm("The Flame of Iridar")  # Fix the title from combined result
+        book_page.mark_as_collection()
+        
+        # Select second work's author
+        author_page.search_author("Kris Neville")
+        author_page.select_local_author("Kris Neville")
+        
+        # Enter second work's title
+        book_page.enter_title("Peril of the Starmen")
+        book_page.submit_title_form()
+        
+        # Now we should be on the collection confirmation page
+        # Fix both the second work's title and the collection title
+        book_page.modify_second_work_title("Peril of the Starmen")
+        book_page.modify_collection_title("The Flame of Iridar and Peril of the Starmen")
+        book_page.confirm_collection()
+
+        # Verify works were created correctly with modified titles
+        flame = Work.objects.filter(title="The Flame of Iridar").first()
+        peril = Work.objects.filter(title="Peril of the Starmen").first()
+        collection = Work.objects.filter(type="COLLECTION").first()
+
+        assert flame is not None
+        assert peril is not None
+        assert collection is not None
+        
+        # Verify authors
+        assert flame.authors.first() == carter
+        assert peril.authors.first() == neville
+        
+        # Verify collection structure with modified titles
+        assert flame in collection.component_works.all()
+        assert peril in collection.component_works.all()
+        assert collection.title == "The Flame of Iridar and Peril of the Starmen"
+
+        # Verify collection authors
+        assert set(collection.authors.all()) == {carter, neville}
+
+        # Verify individual works have correct single authors and modified titles
+        assert flame.authors.count() == 1
+        assert peril.authors.count() == 1
+        assert flame.authors.first() == carter
+        assert peril.authors.first() == neville
+        assert flame.title == "The Flame of Iridar"  # Verify modified title stuck
+        assert peril.title == "Peril of the Starmen"  # Verify modified title stuck
+
+        # Verify success message includes the collection title
+        assert 'added new work' in book_page.get_success_message().lower()
+        assert 'the flame of iridar and peril of the starmen' in book_page.get_success_message().lower()

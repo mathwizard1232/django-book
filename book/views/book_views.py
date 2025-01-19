@@ -537,9 +537,9 @@ def start_collection(request):
     if request.method != 'POST':
         return HttpResponseBadRequest('POST required')
         
-    # Store the first work's details in session
+    # Store the first work's details in session, using the potentially modified title
     request.session['collection_first_work'] = {
-        'title': request.POST.get('title'),
+        'title': request.POST.get('first_work_title', request.POST.get('title')),  # Try first_work_title first
         'work_olid': request.POST.get('work_olid'),
         'author_names': request.POST.get('author_names'),
         'author_olids': request.POST.get('author_olids'),

@@ -17,7 +17,8 @@
                     <h4>First Work</h4>
                     <div class="form-group">
                         <label>Title</label>
-                        <input type="text" class="form-control" value="{{ first_work.title }}" readonly>
+                        <input type="text" class="form-control" name="first_work_title" 
+                               value="{{ first_work.title }}">
                     </div>
                     <div class="form-group mt-2">
                         <label>Author(s)</label>
@@ -34,7 +35,8 @@
                     <h4>Second Work</h4>
                     <div class="form-group">
                         <label>Title</label>
-                        <input type="text" class="form-control" value="{{ second_work.title }}" readonly>
+                        <input type="text" class="form-control" name="second_work_title" 
+                               value="{{ second_work.title }}">
                     </div>
                     <div class="form-group mt-2">
                         <label>Author(s)</label>
@@ -58,7 +60,6 @@
                 <input type="hidden" name="first_work_author_names" value="{{ first_work.author_names }}">
                 <input type="hidden" name="first_work_author_olids" value="{{ first_work.author_olids }}">
                 
-                <input type="hidden" name="second_work_title" value="{{ second_work.title }}">
                 <input type="hidden" name="second_work_olid" value="{{ second_work.work_olid }}">
                 <input type="hidden" name="second_work_author_names" value="{{ second_work.author_names }}">
                 <input type="hidden" name="second_work_author_olids" value="{{ second_work.author_olids }}">

@@ -484,6 +484,19 @@
                 });
             });
         });
+
+        function syncTitleToCollectionForm() {
+            const mainTitle = document.querySelector('input[name="title"]');
+            const collectionTitle = document.querySelector('form[action="/start-collection/"] input[name="title"]');
+            if (mainTitle && collectionTitle) {
+                mainTitle.addEventListener('change', function() {
+                    collectionTitle.value = this.value;
+                });
+            }
+        }
+
+        // Call this when document is ready
+        document.addEventListener('DOMContentLoaded', syncTitleToCollectionForm);
     </script>
 </div>
 {% endblock %}

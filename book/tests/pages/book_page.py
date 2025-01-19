@@ -15,6 +15,11 @@ class BookPage(BasePage):
         # Add selectors for confirm-book.html page
         self.confirm_without_shelving = (By.CSS_SELECTOR, 'input[value="Confirm Without Shelving"]')
         
+        # Add selectors for collection title fields
+        self.first_work_title_input = (By.NAME, 'first_work_title')
+        self.second_work_title_input = (By.NAME, 'second_work_title')
+        self.collection_title_input = (By.NAME, 'title')
+        
     def navigate(self):
         """Navigate to the title entry page."""
         self.driver.get(self.driver.current_url.split('#')[0] + self.url)
@@ -106,3 +111,27 @@ class BookPage(BasePage):
         self.wait.until(
             EC.presence_of_element_located(self.success_alert)
         ) 
+
+    def modify_first_work_title(self, new_title):
+        """Modify the first work's title on the collection confirmation page."""
+        title_input = self.wait.until(
+            EC.presence_of_element_located(self.first_work_title_input)
+        )
+        title_input.clear()
+        title_input.send_keys(new_title)
+        
+    def modify_second_work_title(self, new_title):
+        """Modify the second work's title on the collection confirmation page."""
+        title_input = self.wait.until(
+            EC.presence_of_element_located(self.second_work_title_input)
+        )
+        title_input.clear()
+        title_input.send_keys(new_title) 
+
+    def modify_collection_title(self, new_title):
+        """Modify the collection title on the collection confirmation page."""
+        title_input = self.wait.until(
+            EC.presence_of_element_located(self.collection_title_input)
+        )
+        title_input.clear()
+        title_input.send_keys(new_title) 
