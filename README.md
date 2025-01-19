@@ -58,7 +58,7 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 * Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
 * Need to be able to edit/delete Locations through UI
 * Need to better support modifying / swapping when OL result is wrong/bad (e.g. "Flame of Iridar" brings back wrong double book instead of individual Work; user should be able to modify title and remove OL reference; OL references should be optional)
-* Collection (multiple Works in a Work) entry is not yet working right (not adding authors on parent Work yet; doesn't allow editing component titles; doesn't shelve correctly; etc; need to work on further testing on this flow)
+* Collection (multiple Works in a Work) entry is not yet working right (doesn't allow editing component titles; doesn't shelve correctly; etc; need to work on further testing on this flow)
 
 ## Wishlist
 * Skip author confirmation on exact match
