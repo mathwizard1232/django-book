@@ -394,7 +394,7 @@ def _handle_book_search(request):
                 'title': result.title,
                 'work_olid': result.identifiers['olid'][0],
                 'author_names': result.authors[0]['name'] if result.authors else '',
-                'author_olids': result.authors[0].get('olid', '') if result.authors else '',
+                'author_olids': form_args['author_olids'],
                 'publisher': result.publisher[0] if hasattr(result, 'publisher') and result.publisher else 'Unknown'
             }
 
@@ -557,13 +557,18 @@ def cancel_collection(request):
 
 def _handle_collection_confirmation(request):
     """Handle the confirmation of a second work to create a collection"""
+    # Add detailed logging of all form fields
+    logger.info("Raw POST data:")
+    for key, value in request.POST.items():
+        logger.info("  %s: %s", key, value)
+    
     # Add logging at the start
     logger.info("Processing collection confirmation with POST data:")
     logger.info("First work from session: %s", request.session['collection_first_work'])
-    logger.info("Second work title: %s", request.POST.get('title'))
-    logger.info("Second work OLID: %s", request.POST.get('work_olid'))
-    logger.info("Second work author names: %s", request.POST.get('author_names'))
-    logger.info("Second work author OLIDs: %s", request.POST.get('author_olids'))
+    logger.info("Second work title: %s", request.POST.get('second_work_title'))
+    logger.info("Second work OLID: %s", request.POST.get('second_work_olid'))
+    logger.info("Second work author names: %s", request.POST.get('second_work_author_names'))
+    logger.info("Second work author OLIDs: %s", request.POST.get('second_work_author_olids'))
     logger.info("Second work publisher: %s", request.POST.get('publisher'))
     logger.info("Action: %s", request.POST.get('action'))
     logger.info("Shelf ID: %s", request.POST.get('shelf'))
@@ -573,15 +578,15 @@ def _handle_collection_confirmation(request):
     
     # Get the second work's details from POST
     second_work = {
-        'title': request.POST.get('title'),
-        'work_olid': request.POST.get('work_olid'),
-        'author_names': request.POST.get('author_names'),
-        'author_olids': request.POST.get('author_olids'),
+        'title': request.POST.get('second_work_title'),
+        'work_olid': request.POST.get('second_work_olid'),
+        'author_names': request.POST.get('second_work_author_names'),
+        'author_olids': request.POST.get('second_work_author_olids'),
         'publisher': request.POST.get('publisher'),
     }
     
     # Create the collection work
-    collection_title = f"{first_work['title']} and {second_work['title']}"
+    collection_title = request.POST.get('title')
     collection = Work.objects.create(
         title=collection_title,
         search_name=collection_title,
@@ -590,7 +595,9 @@ def _handle_collection_confirmation(request):
     
     # Create and link the component works
     works_to_create = [first_work, second_work]
+    contained_works = []
     for work_data in works_to_create:
+        logger.info("Processing work data: %s", work_data)
         # Create or get the component work
         work = Work.objects.filter(olid=work_data['work_olid']).first()
         if not work:
@@ -602,16 +609,21 @@ def _handle_collection_confirmation(request):
             )
             
             # Add authors
-            for olid, name in zip(work_data['author_olids'].split(','), 
-                                work_data['author_names'].split(',')):
-                if olid:
-                    author = Author.objects.get_or_fetch(olid)
-                    if author:
-                        work.authors.add(author)
+            if work_data['author_olids']:  # Check if we have author OLIDs
+                for olid, name in zip(work_data['author_olids'].split(','), 
+                                    work_data['author_names'].split(',')):
+                    if olid:
+                        author = Author.objects.get_or_fetch(olid)
+                        if author:
+                            work.authors.add(author)
         
-        # Link to collection
+        # Add to our list of contained works
+        contained_works.append(work)
+        
+    # Link both works to the collection
+    for work in contained_works:
         collection.component_works.add(work)
-    
+
     # Create edition and copy
     edition = Edition.objects.create(
         work=collection,

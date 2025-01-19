@@ -75,3 +75,34 @@ class BookPage(BasePage):
         )
         title_input.clear()
         title_input.send_keys(new_title) 
+
+    def mark_as_collection(self):
+        """Mark the current work as part of a collection."""
+        collection_button = self.find_clickable(
+            By.CSS_SELECTOR, 
+            'button[type="submit"].btn-outline-primary'
+        )
+        collection_button.click()
+        
+    def verify_collection_title(self, expected_title):
+        """Verify the suggested collection title matches expected."""
+        title_input = self.wait.until(
+            EC.presence_of_element_located((By.NAME, 'title'))
+        )
+        actual_title = title_input.get_attribute('value')
+        print(f"\nExpected collection title: {expected_title}")
+        print(f"Actual collection title: {actual_title}")
+        assert actual_title == expected_title
+
+    def confirm_collection(self):
+        """Confirm the collection creation."""
+        confirm_button = self.find_clickable(
+            By.CSS_SELECTOR,
+            'input[name="action"][value="Confirm Without Shelving"]'
+        )
+        confirm_button.click()
+        
+        # Wait for success alert
+        self.wait.until(
+            EC.presence_of_element_located(self.success_alert)
+        ) 

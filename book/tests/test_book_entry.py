@@ -186,3 +186,99 @@ class TestISBNEntry:
         # Verify success message
         assert 'added new work' in isbn_page.get_success_message().lower()
         assert 'test book' in isbn_page.get_success_message().lower()
+
+@pytest.mark.django_db
+class TestCollectionBookEntry:
+    def test_add_double_book(self, browser, requests_mock):
+        """Test adding a book that contains multiple works (like a Belmont Double)."""
+        
+        # Create test authors in database
+        carter = Author.objects.create(
+            primary_name="Lin Carter",
+            search_name="lin carter",
+            olid="OL123A"
+        )
+        neville = Author.objects.create(
+            primary_name="Kris Neville",
+            search_name="kris neville",
+            olid="OL456A"
+        )
+
+        # Mock OpenLibrary API responses for both works
+        flame_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Flame of Iridar',
+                'author_name': ['Lin Carter'],
+                'author_key': ['OL123A'],
+                'first_publish_year': 1967
+            }]
+        }
+        peril_response = {
+            'docs': [{
+                'key': '/works/OL456W',
+                'title': 'Peril of the Starmen',
+                'author_name': ['Kris Neville'],
+                'author_key': ['OL456A'],
+                'first_publish_year': 1967
+            }]
+        }
+        
+        # Mock the API calls
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL123A&title=The+Flame+of+Iridar&limit=2',
+            json=flame_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL456A&title=Peril+of+the+Starmen&limit=2',
+            json=peril_response
+        )
+
+        # Start with first work's author
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Lin Carter")
+        author_page.select_local_author("Lin Carter")
+
+        # Enter first work's title
+        book_page = BookPage(browser)
+        book_page.enter_title("The Flame of Iridar")
+        book_page.submit_title_form()
+        book_page.mark_as_collection()  # This should redirect to author selection for second work
+        
+        # Select second work's author
+        author_page.search_author("Kris Neville")
+        author_page.select_local_author("Kris Neville")
+        
+        # Enter second work's title
+        book_page.enter_title("Peril of the Starmen")
+        book_page.submit_title_form()
+        
+        # Now we should be on the collection confirmation page
+        # Verify the suggested collection title and confirm
+        book_page.verify_collection_title("The Flame of Iridar and Peril of the Starmen")
+        book_page.confirm_collection()
+
+        # Verify works were created correctly
+        flame = Work.objects.filter(title="The Flame of Iridar").first()
+        peril = Work.objects.filter(title="Peril of the Starmen").first()
+        collection = Work.objects.filter(type="COLLECTION").first()
+
+        assert flame is not None
+        assert peril is not None
+        assert collection is not None
+        
+        # Verify authors
+        assert flame.authors.first() == carter
+        assert peril.authors.first() == neville
+        
+        # Verify collection structure
+        assert flame in collection.component_works.all()
+        assert peril in collection.component_works.all()
+        assert collection.title == "The Flame of Iridar and Peril of the Starmen"
+
+        # Verify success message
+        # Right now it's 'added new work "the flame of iridar and peril of the starmen" to your library\n×'
+        # We don't need to check for the exact message, just that it's a success message
+        # Later we may have a more specific message for collections
+        assert 'added new work' in book_page.get_success_message().lower()
