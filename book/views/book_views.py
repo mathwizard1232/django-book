@@ -596,6 +596,8 @@ def _handle_collection_confirmation(request):
     # Create and link the component works
     works_to_create = [first_work, second_work]
     contained_works = []
+    all_authors = set()  # Track all authors for the collection
+    
     for work_data in works_to_create:
         logger.info("Processing work data: %s", work_data)
         # Create or get the component work
@@ -616,10 +618,18 @@ def _handle_collection_confirmation(request):
                         author = Author.objects.get_or_fetch(olid)
                         if author:
                             work.authors.add(author)
+                            all_authors.add(author)  # Add to collection authors set
+        else:
+            # If work already exists, still collect its authors
+            all_authors.update(work.authors.all())
         
         # Add to our list of contained works
         contained_works.append(work)
-        
+    
+    # Add all collected authors to the collection
+    for author in all_authors:
+        collection.authors.add(author)
+    
     # Link both works to the collection
     for work in contained_works:
         collection.component_works.add(work)

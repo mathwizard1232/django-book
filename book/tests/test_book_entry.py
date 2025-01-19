@@ -277,6 +277,16 @@ class TestCollectionBookEntry:
         assert peril in collection.component_works.all()
         assert collection.title == "The Flame of Iridar and Peril of the Starmen"
 
+        # Verify collection authors
+        assert set(collection.authors.all()) == {carter, neville}  # Collection should have both authors
+        assert collection.title == "The Flame of Iridar and Peril of the Starmen"
+
+        # Verify individual works still have correct single authors
+        assert flame.authors.count() == 1
+        assert peril.authors.count() == 1
+        assert flame.authors.first() == carter
+        assert peril.authors.first() == neville
+
         # Verify success message
         # Right now it's 'added new work "the flame of iridar and peril of the starmen" to your library\n×'
         # We don't need to check for the exact message, just that it's a success message
