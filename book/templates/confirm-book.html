@@ -247,15 +247,11 @@
                 .then(response => response.json())
                 .then(bookcases => {
                     updateSelect(`bookcase-${formIndex}`, bookcases);
-                    if (lastUsedBookcase) {
-                        const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
-                        for (let i = 0; i < bookcaseSelect.options.length; i++) {
-                            if (bookcaseSelect.options[i].value === lastUsedBookcase) {
-                                bookcaseSelect.selectedIndex = i;
-                                loadShelves(lastUsedBookcase, formIndex);
-                                break;
-                            }
-                        }
+                    // Auto-select if single bookcase
+                    const bookcaseSelect = document.getElementById(`bookcase-${formIndex}`);
+                    if (bookcaseSelect.options.length === 2) {
+                        bookcaseSelect.selectedIndex = 1;
+                        loadShelves(bookcaseSelect.value, formIndex);
                     }
                 });
         }

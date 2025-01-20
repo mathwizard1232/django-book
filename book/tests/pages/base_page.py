@@ -28,4 +28,19 @@ class BasePage:
             )
             return True
         except TimeoutException:
-            return False 
+            return False
+
+    def select_dropdown(self, by, value, option_text):
+        """Select an option from a dropdown by visible text."""
+        # First ensure the dropdown is present and enabled
+        dropdown = self.wait.until(
+            EC.presence_of_element_located((by, value))
+        )
+        self.wait.until(
+            EC.element_to_be_clickable((by, value))
+        )
+        
+        # Create Select object and select by visible text
+        from selenium.webdriver.support.ui import Select
+        select = Select(dropdown)
+        select.select_by_visible_text(option_text) 

@@ -135,3 +135,66 @@ class BookPage(BasePage):
         )
         title_input.clear()
         title_input.send_keys(new_title) 
+
+    def select_location(self, location_name):
+        """Select a location from the dropdown"""
+        self.select_dropdown(By.ID, 'location', location_name)
+        self.wait_for_ajax()
+
+    def select_room(self, room_name):
+        """Select a room from the dropdown"""
+        self.select_dropdown(By.ID, 'room', room_name)
+        self.wait_for_ajax()
+
+    def select_bookcase(self, bookcase_name):
+        """Select a bookcase from the dropdown"""
+        self.select_dropdown(By.ID, 'bookcase', bookcase_name)
+        self.wait_for_ajax()
+
+    def select_shelf(self, shelf_name):
+        """Select a shelf from the dropdown"""
+        print(f"\nAttempting to select shelf: {shelf_name}")
+        print(f"Current URL: {self.driver.current_url}")
+        
+        # Wait for shelf dropdown to be present
+        try:
+            dropdown = self.wait.until(
+                EC.presence_of_element_located((By.ID, 'shelf-1'))
+            )
+            print("Found shelf dropdown")
+            
+            # Wait for options to be populated (more than just the placeholder)
+            def has_options(driver):
+                options = dropdown.find_elements(By.TAG_NAME, 'option')
+                print(f"Current options: {[opt.text for opt in options]}")
+                return len(options) > 1
+                
+            self.wait.until(has_options)
+            print("Shelf options populated")
+            
+            # Print final options for debugging
+            print("Final dropdown options:", 
+                  [opt.text for opt in dropdown.find_elements(By.TAG_NAME, 'option')])
+        except Exception as e:
+            print("Failed to find/wait for shelf dropdown:", str(e))
+            print("Available elements with IDs:", [
+                elem.get_attribute('id') 
+                for elem in self.driver.find_elements(By.CSS_SELECTOR, '[id]')
+            ])
+            raise
+        
+        self.select_dropdown(By.ID, 'shelf-1', shelf_name)
+
+    def confirm_shelving(self):
+        """Click the confirm and shelve button"""
+        # Wait for auto-selection to complete
+        self.wait.until(
+            EC.element_to_be_clickable(
+                (By.ID, 'shelveButton-1')  # Updated selector
+            )
+        )
+        
+        confirm = self.find_clickable(By.ID, 'shelveButton-1')  # Updated selector
+        print("Found shelving confirm button")
+        confirm.click()
+        print("Clicked shelving confirm button")

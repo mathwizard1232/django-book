@@ -20,12 +20,12 @@
                         
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="mb-3">
+                                <div class="mb-3" id="entity-type-container">
                                     {{ form.entity_type.label_tag }}
                                     {{ form.entity_type }}
                                 </div>
                                 
-                                <div class="mb-3">
+                                <div class="mb-3" id="name-container">
                                     {{ form.name.label_tag }}
                                     {{ form.name }}
                                 </div>
@@ -33,48 +33,48 @@
                             
                             <div class="col-md-6">
                                 <div id="location-fields" class="mb-3" style="display: none;">
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="location-type-container">
                                         {{ form.type.label_tag }}
                                         {{ form.type }}
                                     </div>
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="location-address-container">
                                         {{ form.address.label_tag }}
                                         {{ form.address }}
                                     </div>
                                 </div>
                                 
                                 <div id="room-fields" class="mb-3" style="display: none;">
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="room-type-container">
                                         {{ form.room_type.label_tag }}
                                         {{ form.room_type }}
                                     </div>
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="room-floor-container">
                                         {{ form.floor.label_tag }}
                                         {{ form.floor }}
                                     </div>
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="room-parent-container">
                                         {{ form.parent_location.label_tag }}
                                         {{ form.parent_location }}
                                     </div>
                                 </div>
                                 
                                 <div id="bookcase-fields" class="mb-3" style="display: none;">
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="bookcase-shelf-count-container">
                                         {{ form.shelf_count.label_tag }}
                                         {{ form.shelf_count }}
                                     </div>
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="bookcase-parent-container">
                                         {{ form.parent_room.label_tag }}
                                         {{ form.parent_room }}
                                     </div>
                                 </div>
                                 
                                 <div id="shelf-fields" class="mb-3" style="display: none;">
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="shelf-position-container">
                                         {{ form.position.label_tag }}
                                         {{ form.position }}
                                     </div>
-                                    <div class="mb-2">
+                                    <div class="mb-2" id="shelf-parent-container">
                                         {{ form.parent_bookcase.label_tag }}
                                         {{ form.parent_bookcase }}
                                     </div>
@@ -84,12 +84,12 @@
                         
                         <div class="row">
                             <div class="col-12">
-                                <div class="mb-3">
+                                <div class="mb-3" id="notes-container">
                                     {{ form.notes.label_tag }}
                                     {{ form.notes }}
                                 </div>
                                 
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-primary" id="submit-location">
                                     <i class="fas fa-plus me-2"></i>Add Location
                                 </button>
                             </div>
