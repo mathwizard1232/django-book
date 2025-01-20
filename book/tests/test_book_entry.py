@@ -244,6 +244,7 @@ class TestCollectionBookEntry:
         book_page = BookPage(browser)
         book_page.enter_title("The Flame of Iridar")
         book_page.submit_title_form()
+        book_page.modify_title_on_confirm("The Flame of Iridar")
         book_page.mark_as_collection()  # This should redirect to author selection for second work
         
         # Select second work's author
@@ -255,11 +256,12 @@ class TestCollectionBookEntry:
         book_page.submit_title_form()
         
         # Now we should be on the collection confirmation page
-        # Verify the suggested collection title and confirm
-        book_page.verify_collection_title("The Flame of Iridar and Peril of the Starmen")
+        # Fix both the second work's title and the collection title
+        book_page.modify_second_work_title("Peril of the Starmen")
+        book_page.modify_collection_title("The Flame of Iridar and Peril of the Starmen")
         book_page.confirm_collection()
 
-        # Verify works were created correctly
+        # Verify works were created correctly with modified titles
         flame = Work.objects.filter(title="The Flame of Iridar").first()
         peril = Work.objects.filter(title="Peril of the Starmen").first()
         collection = Work.objects.filter(type="COLLECTION").first()
@@ -267,31 +269,31 @@ class TestCollectionBookEntry:
         assert flame is not None
         assert peril is not None
         assert collection is not None
+        assert collection.title == "The Flame of Iridar and Peril of the Starmen"  # Verify the collection title
         
         # Verify authors
         assert flame.authors.first() == carter
         assert peril.authors.first() == neville
         
-        # Verify collection structure
+        # Verify collection structure with modified titles
         assert flame in collection.component_works.all()
         assert peril in collection.component_works.all()
         assert collection.title == "The Flame of Iridar and Peril of the Starmen"
 
         # Verify collection authors
-        assert set(collection.authors.all()) == {carter, neville}  # Collection should have both authors
-        assert collection.title == "The Flame of Iridar and Peril of the Starmen"
+        assert set(collection.authors.all()) == {carter, neville}
 
-        # Verify individual works still have correct single authors
+        # Verify individual works have correct single authors and modified titles
         assert flame.authors.count() == 1
         assert peril.authors.count() == 1
         assert flame.authors.first() == carter
         assert peril.authors.first() == neville
+        assert flame.title == "The Flame of Iridar"  # Verify modified title stuck
+        assert peril.title == "Peril of the Starmen"  # Verify modified title stuck
 
-        # Verify success message
-        # Right now it's 'added new work "the flame of iridar and peril of the starmen" to your library\n×'
-        # We don't need to check for the exact message, just that it's a success message
-        # Later we may have a more specific message for collections
+        # Verify success message includes the collection title
         assert 'added new work' in book_page.get_success_message().lower()
+        assert 'the flame of iridar and peril of the starmen' in book_page.get_success_message().lower()
 
     def test_modified_titles_collection_entry(self, browser, requests_mock):
         """Test that modifying individual work titles during collection creation saves correctly."""
