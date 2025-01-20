@@ -27,7 +27,7 @@ class Bookcase(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(location__isnull=False, room__isnull=True) |
                     models.Q(location__isnull=True, room__isnull=False)
                 ),
