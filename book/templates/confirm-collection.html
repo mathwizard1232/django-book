@@ -70,8 +70,45 @@
                 <input type="hidden" name="author_olids" value="{{ first_work.author_olids }}">
                 <input type="hidden" name="publisher" value="Various">
 
-                <!-- Location selection -->
-                {% include "includes/location-selector.html" %}
+                <!-- Location hierarchy -->
+                <div class="location-hierarchy mb-3">
+                    <div class="form-group">
+                        <label for="location-1">Location</label>
+                        <select class="form-control location-select" id="location-1" name="location">
+                            <option value="">Select Location...</option>
+                            {% for location in locations %}
+                                <option value="{{ location.id }}">{{ location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mt-2">
+                        <label for="room-1">Room</label>
+                        <select class="form-control" id="room-1" name="room" disabled>
+                            <option value="">Select Room...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mt-2">
+                        <label for="bookcase-1">Bookcase</label>
+                        <select class="form-control" id="bookcase-1" name="bookcase" disabled>
+                            <option value="">Select Bookcase...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mt-2">
+                        <label for="shelf-1">Shelf</label>
+                        <select class="form-control" id="shelf-1" name="shelf" disabled>
+                            <option value="">Select Shelf...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="shelfNotesDisplay-1" class="mb-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <small id="shelfNotes-1"></small>
+                    </div>
+                </div>
 
                 <div class="d-flex gap-2 mt-4">
                     <input type="submit" name="action" value="Confirm Without Shelving" class="btn btn-secondary">
@@ -99,10 +136,10 @@
         // Log all select elements to see what's available
         console.log('All selects:', document.querySelectorAll('select'));
         
-        const locationSelect = document.getElementById('_location');
-        const roomSelect = document.getElementById('_room');
-        const bookcaseSelect = document.getElementById('_bookcase');
-        const shelfSelect = document.getElementById('_shelf');
+        const locationSelect = document.getElementById('location-1');
+        const roomSelect = document.getElementById('room-1');
+        const bookcaseSelect = document.getElementById('bookcase-1');
+        const shelfSelect = document.getElementById('shelf-1');
         
         console.log('Found elements:', {
             locationSelect,
@@ -153,7 +190,7 @@
                     localStorage.setItem('lastUsedShelf', this.value);
                     displayShelfNotes(this.value);
                 } else {
-                    document.getElementById('shelfNotesDisplay').style.display = 'none';
+                    document.getElementById('shelfNotesDisplay-1').style.display = 'none';
                 }
                 updateShelveButton();
             });
@@ -163,9 +200,9 @@
     function loadRooms(locationId) {
         console.log('Loading rooms for location:', locationId);
         if (!locationId) {
-            disableSelect('_room');
-            disableSelect('_bookcase');
-            disableSelect('_shelf');
+            disableSelect('room-1');
+            disableSelect('bookcase-1');
+            disableSelect('shelf-1');
             return;
         }
 
@@ -173,9 +210,9 @@
             .then(response => response.json())
             .then(rooms => {
                 console.log('Rooms loaded:', rooms);
-                updateSelect('_room', rooms);
+                updateSelect('room-1', rooms);
                 // Auto-select if single room
-                const roomSelect = document.getElementById('_room');
+                const roomSelect = document.getElementById('room-1');
                 if (roomSelect.options.length === 2) {
                     roomSelect.selectedIndex = 1;
                     loadBookcases(roomSelect.value);
@@ -187,8 +224,8 @@
     function loadBookcases(roomId) {
         console.log('Loading bookcases for room:', roomId);
         if (!roomId) {
-            disableSelect('_bookcase');
-            disableSelect('_shelf');
+            disableSelect('bookcase-1');
+            disableSelect('shelf-1');
             return;
         }
 
@@ -196,14 +233,22 @@
             .then(response => response.json())
             .then(bookcases => {
                 console.log('Bookcases loaded:', bookcases);
-                updateSelect('_bookcase', bookcases);
-                if (lastUsedBookcase) {
-                    const bookcaseSelect = document.getElementById('_bookcase');
-                    bookcaseSelect.value = lastUsedBookcase;
-                    if (bookcaseSelect.value) {
+                console.log('Last used bookcase:', lastUsedBookcase);
+                console.log('Available bookcase IDs:', bookcases.map(b => b.id));
+                updateSelect('bookcase-1', bookcases);
+                
+                // Add a small delay to ensure the options are populated
+                setTimeout(() => {
+                    const bookcaseSelect = document.getElementById('bookcase-1');
+                    if (lastUsedBookcase && bookcases.some(b => b.id == lastUsedBookcase)) {
+                        bookcaseSelect.value = lastUsedBookcase;
                         loadShelves(lastUsedBookcase);
+                    } else if (bookcases.length === 1) {
+                        // Auto-select if there's only one bookcase
+                        bookcaseSelect.selectedIndex = 1;
+                        loadShelves(bookcases[0].id);
                     }
-                }
+                }, 0);
             })
             .catch(error => console.error('Error loading bookcases:', error));
     }
@@ -211,7 +256,7 @@
     function loadShelves(bookcaseId) {
         console.log('Loading shelves for bookcase:', bookcaseId);
         if (!bookcaseId) {
-            disableSelect('_shelf');
+            disableSelect('shelf-1');
             return;
         }
 
@@ -219,9 +264,9 @@
             .then(response => response.json())
             .then(shelves => {
                 console.log('Shelves loaded:', shelves);
-                updateSelect('_shelf', shelves);
+                updateSelect('shelf-1', shelves);
                 if (lastUsedShelf) {
-                    const shelfSelect = document.getElementById('_shelf');
+                    const shelfSelect = document.getElementById('shelf-1');
                     shelfSelect.value = lastUsedShelf;
                     if (shelfSelect.value) {
                         displayShelfNotes(lastUsedShelf);
@@ -255,11 +300,11 @@
 
     function displayShelfNotes(shelfId) {
         console.log('Displaying notes for shelf:', shelfId);
-        const shelfSelect = document.getElementById('_shelf');
+        const shelfSelect = document.getElementById('shelf-1');
         const shelf = shelfSelect.options[shelfSelect.selectedIndex].shelf;
-        const display = document.getElementById('_shelfNotesDisplay');
+        const display = document.getElementById('shelfNotesDisplay-1');
         if (shelf && shelf.notes) {
-            const notesElement = document.getElementById('_shelfNotes');
+            const notesElement = document.getElementById('shelfNotes-1');
             if (notesElement) {
                 notesElement.textContent = shelf.notes;
                 display.style.display = 'block';
@@ -270,7 +315,7 @@
     }
 
     function updateShelveButton() {
-        const shelfSelect = document.getElementById('_shelf');
+        const shelfSelect = document.getElementById('shelf-1');
         const shelveButton = document.querySelector('.shelve-button');
         if (shelveButton && shelfSelect) {
             console.log('Updating shelve button. Shelf value:', shelfSelect.value);

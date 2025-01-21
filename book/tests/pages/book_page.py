@@ -138,17 +138,17 @@ class BookPage(BasePage):
 
     def select_location(self, location_name):
         """Select a location from the dropdown"""
-        self.select_dropdown(By.ID, 'location', location_name)
+        self.select_dropdown(By.ID, 'location-1', location_name)
         self.wait_for_ajax()
 
     def select_room(self, room_name):
         """Select a room from the dropdown"""
-        self.select_dropdown(By.ID, 'room', room_name)
+        self.select_dropdown(By.ID, 'room-1', room_name)
         self.wait_for_ajax()
 
     def select_bookcase(self, bookcase_name):
         """Select a bookcase from the dropdown"""
-        self.select_dropdown(By.ID, 'bookcase', bookcase_name)
+        self.select_dropdown(By.ID, 'bookcase-1', bookcase_name)
         self.wait_for_ajax()
 
     def select_shelf(self, shelf_name):
@@ -187,14 +187,24 @@ class BookPage(BasePage):
 
     def confirm_shelving(self):
         """Click the confirm and shelve button"""
-        # Wait for auto-selection to complete
-        self.wait.until(
-            EC.element_to_be_clickable(
-                (By.ID, 'shelveButton-1')  # Updated selector
-            )
-        )
+        # Try both possible selectors for the shelve button
+        selectors = [
+            (By.ID, 'shelveButton-1'),  # For confirm-book.html
+            (By.CSS_SELECTOR, 'input[name="action"][value="Confirm and Shelve"]')  # For confirm-collection.html
+        ]
         
-        confirm = self.find_clickable(By.ID, 'shelveButton-1')  # Updated selector
-        print("Found shelving confirm button")
-        confirm.click()
-        print("Clicked shelving confirm button")
+        # Try each selector until we find one that works
+        for selector in selectors:
+            try:
+                self.wait.until(
+                    EC.element_to_be_clickable(selector)
+                )
+                confirm = self.find_clickable(*selector)
+                print(f"Found shelving confirm button using {selector}")
+                confirm.click()
+                print("Clicked shelving confirm button")
+                return
+            except:
+                continue
+            
+        raise Exception("Could not find shelve button with any known selector")
