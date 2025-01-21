@@ -41,7 +41,7 @@ def list(request):
         'edition_set__copy_set__room',
         'edition_set__copy_set__bookcase',
         'edition_set__copy_set__shelf'
-    )
+    ).filter(edition__copy__isnull=False).distinct()  # Only include works that have copies
     
     logger.info("Found %d total works to process", works.count())
     
@@ -51,82 +51,43 @@ def list(request):
     displayed_component_works = set()  # Track which component works we've handled
     displayed_parent_works = set()  # Track which parent works we've handled
     
-    # First pass: Handle parent multivolume works
-    logger.info("Starting first pass: handling parent multivolume works")
+    # First pass: Handle parent multivolume works and collections
+    logger.info("Starting first pass: handling parent works")
     for work in works:
-        if not work.is_multivolume or work.volume_number:
+        if not work.is_multivolume and work.type != "COLLECTION":
             continue
-            
+
         logger.info("Processing potential parent work: %s (id=%d)", work.title, work.id)
-        
+
         # Skip parent works that don't have component works
         if not work.component_works.exists():
             logger.info("Skipping work %d: no component works", work.id)
             continue
-            
-        # This is a parent multivolume work
-        component_shelves = set()
-        component_volumes = {}
-        all_volumes_found = True
-        
-        logger.info("Found parent multivolume work: %s (id=%d)", work.title, work.id)
-        
-        # Check locations of all component volumes
-        for component in work.component_works.all():
-            logger.info("Checking component work: %s (id=%d)", component.title, component.id)
-            has_copies = False
-            for edition in component.edition_set.all():
-                for copy in edition.copy_set.all():
-                    has_copies = True
-                    if copy.shelf:
-                        shelf_id = copy.shelf.id
-                        component_shelves.add(shelf_id)
-                        if shelf_id not in component_volumes:
-                            component_volumes[shelf_id] = []
-                        component_volumes[shelf_id].append(component)
-                        logger.info("Component %d found on shelf %d", component.id, shelf_id)
-            if not has_copies:
-                logger.info("Component %d has no copies", component.id)
-                all_volumes_found = False
-        
-        logger.info("Component analysis for work %d:", work.id)
-        logger.info("- Shelves found: %s", component_shelves)
-        logger.info("- All volumes found: %s", all_volumes_found)
-        
-        # Only show as a set if all volumes are present and on the same shelf
-        # AND we have more than one volume
-        shelf_id = next(iter(component_shelves)) if component_shelves else None
-        if shelf_id and len(component_shelves) == 1 and all_volumes_found and len(component_volumes[shelf_id]) > 1:
-            copy = edition.copy_set.filter(shelf_id=shelf_id).first()
-            if copy:
-                location_name = copy.location.name if copy.location else copy.room.location.name
-                bookcase_name = copy.bookcase.name
-                shelf_position = copy.shelf.position
-                
-                logger.info("Adding complete set to location: %s > %s > %d", 
-                           location_name, bookcase_name, shelf_position)
-                
-                if location_name not in works_by_location:
-                    works_by_location[location_name] = {}
-                if bookcase_name not in works_by_location[location_name]:
-                    works_by_location[location_name][bookcase_name] = {}
-                if shelf_position not in works_by_location[location_name][bookcase_name]:
-                    works_by_location[location_name][bookcase_name][shelf_position] = []
-                
-                work.volume_count = len(component_volumes[shelf_id])
-                works_by_location[location_name][bookcase_name][shelf_position].append(work)
-                displayed_parent_works.add(work.id)  # Mark parent work as displayed
-                logger.info("Added parent work %d with %d volumes", work.id, work.volume_count)
-                
-                # Mark all components as displayed
-                for component in component_volumes[shelf_id]:
-                    displayed_component_works.add(component.id)
-                    logger.info("Marked component %d as displayed", component.id)
-        else:
-            # If volumes are spread across shelves or incomplete, mark the parent as "displayed"
-            # so it won't show up in unassigned
-            displayed_parent_works.add(work.id)
-            logger.info("Marked incomplete/spread parent work %d as displayed", work.id)
+
+        # Check if the parent work itself has a shelved copy
+        for edition in work.edition_set.all():
+            for copy in edition.copy_set.all():
+                if copy.shelf:
+                    # If the collection/parent work is shelved, mark all its components as displayed
+                    displayed_component_works.update(
+                        work.component_works.values_list('id', flat=True)
+                    )
+                    displayed_parent_works.add(work.id)
+                    
+                    location_name = copy.location.name if copy.location else copy.room.location.name
+                    bookcase_name = copy.bookcase.name
+                    shelf_position = copy.shelf.position
+
+                    if location_name not in works_by_location:
+                        works_by_location[location_name] = {}
+                    if bookcase_name not in works_by_location[location_name]:
+                        works_by_location[location_name][bookcase_name] = {}
+                    if shelf_position not in works_by_location[location_name][bookcase_name]:
+                        works_by_location[location_name][bookcase_name][shelf_position] = []
+
+                    works_by_location[location_name][bookcase_name][shelf_position].append(work)
+                    logger.info("Added shelved collection/parent work %d and marked components as displayed", work.id)
+                    break
     
     logger.info("Starting second pass: handling individual volumes and non-multivolume works")
     logger.info("Currently displayed: %d parent works, %d component works", 
