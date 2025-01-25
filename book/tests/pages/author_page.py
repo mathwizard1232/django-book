@@ -30,7 +30,7 @@ class AuthorPage(BasePage):
         return [result.text for result in results]
 
     def select_local_author(self, author_name):
-        """Select a local author from the dropdown (bypasses confirmation)."""
+        """Select a local author from the dropdown."""
         print(f"\nStarting local author selection for: {author_name}")
         
         # Wait for dropdown items to appear
@@ -48,17 +48,8 @@ class AuthorPage(BasePage):
                 print(f"Found matching result: {result.text}")
                 print("Current URL before click:", self.driver.current_url)
                 self.driver.execute_script("arguments[0].click();", result)
-                
-                # Find and submit the form
-                form = self.find_element(By.CSS_SELECTOR, 'form[action="/author/"]')
-                submit_button = form.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
-                submit_button.click()
-                
-                print("Current URL after form submit:", self.driver.current_url)
                 break
-        else:
-            print(f"WARNING: No match found for {author_name}")
-            
+        
         # Wait for redirect to title page
         print("Waiting for redirect to /title")
         try:
@@ -78,6 +69,34 @@ class AuthorPage(BasePage):
         )
         submit_button.click()
         
+        # Wait for redirect to title page
+        self.wait.until(
+            EC.url_contains('/title')
+        )
+
+    def select_openlibrary_author(self, display_name):
+        """Select an OpenLibrary author from the dropdown by their display name."""
+        self.wait.until(
+            EC.presence_of_all_elements_located(self.search_results)
+        )
+        
+        results = self.driver.find_elements(*self.search_results)
+        found = False
+        for result in results:
+            if result.text == display_name:
+                print(f"Found matching result: {result.text}")
+                print("Current URL before click:", self.driver.current_url)
+                self.driver.execute_script("arguments[0].click();", result)
+                found = True
+                break
+        
+        if not found:
+            print(f"\nFailed to find exact match for '{display_name}'")
+            print("Available options:")
+            for r in results:
+                print(f"- '{r.text}'")
+            raise ValueError(f"Could not find author option matching '{display_name}'")
+
         # Wait for redirect to title page
         self.wait.until(
             EC.url_contains('/title')

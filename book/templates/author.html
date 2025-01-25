@@ -83,7 +83,99 @@
                 url: '/author-autocomplete',
                 queryKey: 'q'
             },
-            minLength: 3
+            minLength: 2,
+            preventEnter: true,
+            formatResult: function(item) {
+                console.log('Raw item in formatResult:', item);
+                
+                // Handle string format with custom delimiter
+                if (typeof item === 'string' && item.includes(':::')) {
+                    let [displayName, olid] = item.split(':::').map(s => s.trim());
+                    
+                    // Build HTML
+                    let html = `<div class="author-result">
+                        <div class="author-name">${displayName}</div>
+                    </div>`;
+
+                    return {
+                        value: item,
+                        text: displayName,
+                        html: html
+                    };
+                }
+                
+                // Handle OpenLibrary response format
+                if (typeof item === 'object' && item.key) {
+                    let displayName = item.name;
+                    let olid = item.key.replace('/authors/', '');
+                    
+                    // Add birth/death dates if available
+                    if (item.birth_date && item.death_date) {
+                        displayName += ` (${item.birth_date}-${item.death_date})`;
+                    }
+                    
+                    // Handle pen names
+                    let penName = '';
+                    if (item.alternate_names) {
+                        let pseudonyms = item.alternate_names.filter(name => name.includes('pseud.'));
+                        if (pseudonyms.length > 0) {
+                            penName = pseudonyms[0].replace(' (pseud.)', '');
+                        }
+                    }
+
+                    // Build HTML
+                    let html = `<div class="author-result">
+                        <div class="author-name">${displayName}</div>
+                        ${penName ? `<div class="author-pen-name text-muted small">Also known as: ${penName}</div>` : ''}
+                    </div>`;
+
+                    return {
+                        value: item,
+                        text: displayName + (penName ? `\n${penName}` : ''),
+                        html: html
+                    };
+                }
+                
+                console.error('Unexpected item format:', item);
+                return null;
+            }
+        }).on('autocomplete.select', function(evt, item) {
+            // Debug logging for the incoming data
+            console.log("Autocomplete selection event:", evt);
+            console.log("Selected item:", item);
+            
+            // First set the form field value
+            const authorInput = $(this);
+            const form = authorInput.closest('form');
+            
+            // Set the value directly on the existing form field
+            $('.basicAutoComplete').val(item.value || item);
+            
+            // Get author role
+            const authorRole = $('#authorRole').val() || 'AUTHOR';
+            
+            // Update or create hidden author_role input
+            let roleInput = form.find('input[name="author_role"]');
+            if (roleInput.length === 0) {
+                roleInput = $('<input>').attr({
+                    type: 'hidden',
+                    name: 'author_role'
+                }).appendTo(form);
+            }
+            roleInput.val(authorRole);
+            
+            // Debug logging before submit
+            console.log("Form values before submit:", {
+                authorValue: $('.basicAutoComplete').val(),
+                authorRole: roleInput.val(),
+                formData: form.serialize()
+            });
+            
+            // Set absolute path for form action
+            form.attr('action', '/author/');
+            
+            // Submit the form
+            form.submit();
         });
 
         // Get initial state from hidden input
@@ -102,4 +194,19 @@
         });
     });
 </script>
+
+<style>
+    .author-result {
+        padding: 5px;
+    }
+    .author-name {
+        font-weight: bold;
+    }
+    .author-dates, .author-pen-name {
+        margin-left: 10px;
+    }
+    .dropdown-menu .dropdown-item {
+        white-space: normal;  /* Allow wrapping for long names/details */
+    }
+</style>
 {% endblock %}

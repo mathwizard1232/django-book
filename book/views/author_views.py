@@ -5,6 +5,7 @@ from ..forms import AuthorForm, ConfirmAuthorForm, ConfirmAuthorFormWithBio
 from ..models import Author
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER  # Import the DIVIDER from autocomplete_views
+from django.views.decorators.http import require_GET
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ def get_author(request):
                 # This is a local author result, extract name and olid
                 name, olid = name.split(DIVIDER)
                 return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
-                
+            
+            # For OpenLibrary results, redirect to confirmation
             return HttpResponseRedirect(f'/confirm-author.html?author_name={name}&author_role={author_role}')
     
     author_role = request.GET.get('author_role', 'AUTHOR').upper()
@@ -61,46 +63,49 @@ def confirm_author(request):
         first_olid = first_author['key'][9:]  # remove "/authors/" prefix
         first_author_full = ol.Author.get(first_olid)
         logger.info("First author full details: %s", vars(first_author_full))
-        bio = first_author_full.bio
         
-        logger.info("Author bio for %s: %s", first_author['name'], bio if bio else "No biography available")
-        
-        form = ConfirmAuthorForm({
-            'author_olid': first_olid, 
-            'author_name': first_author['name'], 
+        # Enhanced author details
+        first_author_details = {
+            'author_olid': first_olid,
+            'author_name': first_author['name'],
             'search_name': name,
-            'author_role': author_role
-        })
-
-        if bio:
-            form = ConfirmAuthorFormWithBio({
-                'author_olid': first_olid,
-                'author_name': first_author['name'],
-                'search_name': name,
-                'bio': bio
-            })
+            'author_role': author_role,
+            'birth_date': getattr(first_author_full, 'birth_date', ''),
+            'death_date': getattr(first_author_full, 'death_date', ''),
+            'alternate_names': getattr(first_author_full, 'alternate_names', []),
+            'personal_name': getattr(first_author_full, 'personal_name', ''),
+            'bio': getattr(first_author_full, 'bio', '')
+        }
+        
+        form = ConfirmAuthorFormWithBio(first_author_details) if first_author_details['bio'] else ConfirmAuthorForm(first_author_details)
 
         form2 = None
         if len(results) > 1:
-            # NOTE: adding this because sometimes even with full name first result is wrong
             second_author = results[1]
             second_olid = second_author['key'][9:]
             second_author_full = ol.Author.get(second_olid)
-            logger.info("Second author full details: %s", vars(second_author_full))
-            second_bio = second_author_full.bio
-            form2 = ConfirmAuthorForm({
+            
+            # Enhanced second author details
+            second_author_details = {
                 'author_olid': second_olid,
                 'author_name': second_author['name'],
-                'search_name': name
-            })
-            if second_bio:
-                form2 = ConfirmAuthorFormWithBio({
-                    'author_olid': second_olid,
-                    'author_name': second_author['name'],
-                    'search_name': name,
-                    'bio': second_bio
-                })
-        return render(request, 'confirm-author.html', {'form': form, 'form2': form2})
+                'search_name': name,
+                'birth_date': getattr(second_author_full, 'birth_date', ''),
+                'death_date': getattr(second_author_full, 'death_date', ''),
+                'alternate_names': getattr(second_author_full, 'alternate_names', []),
+                'personal_name': getattr(second_author_full, 'personal_name', ''),
+                'bio': getattr(second_author_full, 'bio', '')
+            }
+            
+            form2 = ConfirmAuthorFormWithBio(second_author_details) if second_author_details['bio'] else ConfirmAuthorForm(second_author_details)
+
+        context = {
+            'form': form, 
+            'form2': form2,
+            'first_author_details': first_author_details,
+            'second_author_details': second_author_details if form2 else None
+        }
+        return render(request, 'confirm-author.html', context)
 
     if request.method == 'POST':
         # Get the author role from the form
@@ -122,3 +127,44 @@ def confirm_author(request):
 
         # Finally, redirect them off to the title lookup
         return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
+
+"""@require_GET
+def search_author(request):
+    Search for an author by name.
+    query = request.GET.get('q', '')
+    if not query:
+        return JsonResponse([], safe=False)
+
+    # First search local database
+    local_authors = Author.objects.filter(search_name__icontains=query.lower())
+    results = []
+    
+    # Add local results
+    for author in local_authors:
+        results.append({
+            'name': author.primary_name,
+            'birth_date': author.birth_date,
+            'death_date': author.death_date,
+            'value': f"{author.primary_name}{DIVIDER}{author.olid}"
+        })
+
+    # Then search OpenLibrary if needed
+    if len(results) < 5:
+        ol = CachedOpenLibrary()
+        ol_results = ol.Author.search(query, limit=5-len(results))
+        
+        # Add OpenLibrary results
+        for author in ol_results:
+            if author.get('key'):
+                results.append({
+                    'name': author.get('name', ''),
+                    'alternate_names': author.get('alternate_names', []),
+                    'birth_date': author.get('birth_date', ''),
+                    'death_date': author.get('death_date', ''),
+                    'key': author['key'],
+                    'type': author.get('type', {}).get('key', '')
+                })
+
+    print(f"Search results for '{query}':", results)  # Debug log
+    return JsonResponse(results, safe=False)
+"""

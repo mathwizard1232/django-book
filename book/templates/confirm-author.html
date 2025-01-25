@@ -1,96 +1,109 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
-    <h2>Confirm Author Selection</h2>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3 class="card-title mb-0">Primary Match</h3>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Confirm Author Details</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="/author/">
+                        {% csrf_token %}
+                        {{ form.author_olid }}
+                        {{ form.search_name }}
+                        {{ form.author_role }}
+                        {{ form.birth_date }}
+                        {{ form.death_date }}
+                        {{ form.alternate_names }}
+                        {{ form.personal_name }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Author Name</label>
+                            {{ form.author_name }}
+                            {% if first_author_details.birth_date or first_author_details.death_date %}
+                                <div class="text-muted">
+                                    ({{ first_author_details.birth_date }} - {{ first_author_details.death_date }})
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {% if first_author_details.personal_name and first_author_details.personal_name != first_author_details.author_name %}
+                            <div class="mb-3">
+                                <label class="form-label">Legal Name</label>
+                                <div>{{ first_author_details.personal_name }}</div>
+                            </div>
+                        {% endif %}
+
+                        {% if first_author_details.alternate_names %}
+                            <div class="mb-3">
+                                <label class="form-label">Also Known As</label>
+                                <ul class="list-unstyled">
+                                    {% for name in first_author_details.alternate_names %}
+                                        <li>{{ name }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if form.bio %}
+                            <div class="mb-3">
+                                <label class="form-label">Biography</label>
+                                {{ form.bio }}
+                            </div>
+                        {% endif %}
+
+                        <button type="submit" class="btn btn-primary">Confirm Author</button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <form action="/confirm-author.html" method="post">
-                {% csrf_token %}
-                
-                <!-- Author Name -->
-                <div class="form-group">
-                    <label for="id_author_name">Author Name</label>
-                    {{ form.author_name }}
-                </div>
 
-                <!-- Biography (if available) -->
-                {% if form.bio %}
-                <div class="form-group mt-3">
-                    <label for="id_bio">Biography</label>
-                    {{ form.bio }}
+        {% if form2 %}
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Alternative Match</h3>
                 </div>
-                {% endif %}
+                <div class="card-body">
+                    <form action="/author/" method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Author Name -->
+                        <div class="form-group">
+                            <label for="id_author_name">Author Name</label>
+                            {{ form2.author_name }}
+                        </div>
 
-                <!-- Hidden Fields -->
-                {{ form.author_olid }}
-                {{ form.search_name }}
-                
-                <input type="hidden" name="author_role" value="{{ form.author_role.value }}">
-                {% if request.session.collection_first_work %}
-                    <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
-                    <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
-                    <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
-                    <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
-                    <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
-                {% endif %}
-                
-                <div class="text-center mt-3">
-                    <input type="submit" value="Confirm primary author result" class="btn btn-primary" autofocus>
+                        <!-- Biography (if available) -->
+                        {% if form2.bio %}
+                        <div class="form-group mt-3">
+                            <label for="id_bio">Biography</label>
+                            {{ form2.bio }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Hidden Fields -->
+                        {{ form2.author_olid }}
+                        {{ form2.search_name }}
+                        
+                        <input type="hidden" name="author_role" value="{{ form2.author_role.value }}">
+                        {% if request.session.collection_first_work %}
+                            <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
+                            <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
+                            <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
+                            <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
+                            <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
+                        {% endif %}
+                        
+                        <div class="text-center mt-3">
+                            <input type="submit" value="Select alternate suggestion" class="btn btn-secondary">
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
-    </div>
-
-    {% if form2 %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3 class="card-title mb-0">Alternate Match</h3>
-        </div>
-        <div class="card-body">
-            <form action="/confirm-author.html" method="post">
-                {% csrf_token %}
-                
-                <!-- Author Name -->
-                <div class="form-group">
-                    <label for="id_author_name">Author Name</label>
-                    {{ form2.author_name }}
-                </div>
-
-                <!-- Biography (if available) -->
-                {% if form2.bio %}
-                <div class="form-group mt-3">
-                    <label for="id_bio">Biography</label>
-                    {{ form2.bio }}
-                </div>
-                {% endif %}
-
-                <!-- Hidden Fields -->
-                {{ form2.author_olid }}
-                {{ form2.search_name }}
-                
-                <input type="hidden" name="author_role" value="{{ form2.author_role.value }}">
-                {% if request.session.collection_first_work %}
-                    <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
-                    <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
-                    <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
-                    <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
-                    <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
-                {% endif %}
-                
-                <div class="text-center mt-3">
-                    <input type="submit" value="Select alternate suggestion" class="btn btn-secondary">
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="text-center">
-        <a href="/author/" class="btn btn-outline-primary">Change author search</a>
+        {% endif %}
     </div>
 </div>
 

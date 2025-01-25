@@ -12,19 +12,18 @@ class AuthorForm(forms.Form):
 
 class ConfirmAuthorForm(forms.Form):
     """ Readonly version showing lookup results """
-    # Display version of author name from OpenLibrary
-    author_name = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    # OpenLibrary identifier
-    author_olid = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
-    # Name entered by user; alternate lookup
-    search_name = forms.CharField(max_length=100,
-        widget=forms.TextInput(attrs={'readonly': True}))
+    author_olid = forms.CharField(widget=forms.HiddenInput())
+    author_name = forms.CharField(label='Author Name')
+    search_name = forms.CharField(widget=forms.HiddenInput())
+    author_role = forms.CharField(widget=forms.HiddenInput(), required=False)
+    birth_date = forms.CharField(widget=forms.HiddenInput(), required=False)
+    death_date = forms.CharField(widget=forms.HiddenInput(), required=False)
+    alternate_names = forms.CharField(widget=forms.HiddenInput(), required=False)
+    personal_name = forms.CharField(widget=forms.HiddenInput(), required=False)
 
 class ConfirmAuthorFormWithBio(ConfirmAuthorForm):
     """Additional field for bio if available"""
-    bio = forms.CharField(widget=forms.Textarea(attrs={'readonly': True}), required=False)
+    bio = forms.CharField(widget=forms.Textarea(attrs={'readonly': 'readonly'}), required=False)
 
 class TitleForm(forms.Form):
     """ Input to get user version of a title """

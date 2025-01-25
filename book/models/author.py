@@ -35,13 +35,31 @@ class Author(models.Model):
     olid = models.CharField(max_length=100, primary_key=True)
 
     # Display name to be used here (various other forms will always exist)
+    # For instance, we might have "Frederick 'Max Brand' Faust"
+    # This should be our best "presentation" name (may have more information than search_name)
+    # Balance between giving a more "proper" name but not necessarily unusual forms
+    # e.g. J. R. R. Tolkien vs. John Ronald Reuel Tolkien; we would prefer the former
     primary_name = models.CharField(max_length=100)
 
     # Search prefix used in initial lookup
+    # For instance, we might have "Max Brand" or "Tolkein" or "Heinlein"
+    # This should be whatever the user is most likely to search for / most common form
     search_name = models.CharField(max_length=100, blank=True, null=True)
+
+    # Birth date
+    birth_date = models.CharField(max_length=50, blank=True, null=True)
+
+    # Death date
+    death_date = models.CharField(max_length=50, blank=True, null=True)
 
     # Use our custom manager
     objects = AuthorManager()
 
     def __str__(self):
+        return self.primary_name
+
+    def display_name(self):
+        """Return name with dates if available"""
+        if self.birth_date and self.death_date:
+            return f"{self.primary_name} ({self.birth_date}-{self.death_date})"
         return self.primary_name

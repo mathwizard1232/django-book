@@ -21,21 +21,39 @@ def author_autocomplete(request):
     # first, look for local results
     author_qs = Author.objects.filter(search_name__contains=search_str)
     if author_qs:
-        author = author_qs[0]
-        logger.info("Successful local lookup of author candidate of %s (%s) on %s", 
-                   author.primary_name, author.olid, search_str)
-        # We're using the DIVIDER as a kludge to pass these two values together in a single value
-        return JsonResponse(
-            [author.primary_name + DIVIDER + author.olid for author in author_qs],
-            safe=False
-        )
+        # Add any distinguishing details to local results
+        results = []
+        for author in author_qs:
+            display_name = author.primary_name
+            if hasattr(author, 'birth_date') and hasattr(author, 'death_date'):
+                display_name += f" ({author.birth_date}-{author.death_date})"
+            results.append(display_name + DIVIDER + author.olid)
+        return JsonResponse(results, safe=False)
 
     # otherwise, do an OpenLibrary API search
     RESULTS_LIMIT = 5
     ol = CachedOpenLibrary()
     authors = ol.Author.search(search_str, RESULTS_LIMIT)
-    names = [author['name'] for author in authors]
-    return JsonResponse(names, safe=False)
+    
+    # Enhanced display for OpenLibrary results
+    results = []
+    for author in authors:
+        display_name = author['name']
+        olid = author['key'].replace('/authors/', '')
+        
+        # Add birth/death dates if available
+        if 'birth_date' in author and 'death_date' in author:
+            display_name += f" ({author['birth_date']}-{author['death_date']})"
+        
+        # Add alternate names if available
+        if 'alternate_names' in author:
+            pen_names = [name for name in author['alternate_names'] if 'pseud.' in name]
+            if pen_names:
+                display_name += f" [also: {pen_names[0]}]"
+                
+        results.append(display_name + DIVIDER + olid)
+        
+    return JsonResponse(results, safe=False)
 
 def title_autocomplete(request, oid):
     """
