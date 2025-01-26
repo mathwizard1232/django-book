@@ -52,6 +52,12 @@ class Author(models.Model):
     # Death date
     death_date = models.CharField(max_length=50, blank=True, null=True)
 
+    # Alternate names
+    alternate_names = models.JSONField(default=list, blank=True)
+
+    # Alternate Open Library IDs
+    alternate_olids = models.JSONField(default=list, blank=True)
+
     # Use our custom manager
     objects = AuthorManager()
 

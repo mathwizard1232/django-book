@@ -13,6 +13,7 @@ class CachedOpenLibrary(OpenLibrary):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cached_work_class = self._create_cached_work()
+        self._cached_author_class = self._create_cached_author()
 
     def _make_request(self, url, method='get', **kwargs):
         """Make a request with caching support"""
@@ -153,10 +154,58 @@ class CachedOpenLibrary(OpenLibrary):
         
         return CachedWork
 
+    def _create_cached_author(self):
+        """Create a cached version of the Author class"""
+        original_author = super().Author
+        ol_instance = self
+        
+        class CachedAuthor(original_author):
+            @classmethod
+            def search(cls, q, limit=5):
+                """Search for authors with caching support"""
+                url = f"{ol_instance.base_url}/authors/_autocomplete?q={q}&limit={limit}"
+                
+                logger.debug(f"Making cached author search request to {url}")
+                try:
+                    response = ol_instance._make_request(url)
+                    return response.json()
+                except Exception as e:
+                    logger.error(f"Author search failed: {e}")
+                    raise
+                    
+            @classmethod
+            def get(cls, olid):
+                """Get author details with caching support"""
+                url = f"{ol_instance.base_url}/authors/{olid}.json"
+                
+                logger.debug(f"Making cached author get request to {url}")
+                try:
+                    response = ol_instance._make_request(url)
+                    data = response.json()
+                    # Create an Author object from the response data
+                    return cls(
+                        name=data.get('name', ''),
+                        olid=olid,
+                        birth_date=data.get('birth_date'),
+                        death_date=data.get('death_date'),
+                        personal_name=data.get('personal_name'),
+                        alternate_names=data.get('alternate_names', [])
+                    )
+                except Exception as e:
+                    logger.error(f"Author get failed: {e}")
+                    raise
+        
+        return CachedAuthor
+
     @property
     def Work(self):
         """Override the Work property to return our cached version"""
         return self._cached_work_class
+
+    @property
+    def Author(self):
+        """Override the Author property to return our cached version"""
+        return self._cached_author_class
 
     def get_ol_response(self, path):
         """Override get_ol_response to implement caching"""

@@ -7,6 +7,7 @@ from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -305,11 +306,16 @@ def _handle_book_search(request):
     search_title = params['title']
     args = {}
     
-    # Build author context
+    # Build author context and get local author if available
+    local_author = None
     if 'author_name' in params:
         args['author_name'] = params['author_name']
     if 'author_olid' in params:
         args['author_olid'] = params['author_olid']
+        local_author = Author.objects.filter(olid=args['author_olid']).first()
+        logger.info("Found local author: %s with OLID %s", 
+                   local_author.primary_name if local_author else None, 
+                   args['author_olid'])
     
     context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
 
@@ -348,39 +354,60 @@ def _handle_book_search(request):
         display_title = result.title
         work_olid = result.identifiers['olid'][0]
         
-        # Check for existing work with copies before creating form
-        logger.info("Checking for existing work with copies for %s", work_olid)
+        # Check for existing work with copies
         existing_work = Work.objects.filter(olid=work_olid).first()
         if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
-            logger.info("Found existing work with copies for %s", work_olid)
             context = {
                 'work': existing_work,
                 'form_data': {
                     'title': display_title,
                     'work_olid': work_olid,
-                    'author_names': result.authors[0]['name'],
-                    'author_olids': result.authors[0].get('olid', '')
+                    'author_names': result.authors[0]['name'] if result.authors else '',
+                    'author_olids': result.authors[0].get('olid', '') if result.authors else ''
                 },
                 'locations': Location.objects.all()
             }
             return render(request, 'confirm-duplicate.html', context)
-            
-        publish_year = result.publish_date
-        publisher = result.publisher
-        author_name = result.authors[0]['name']
-
-        # Get author OLID either from args or from search result
-        author_olids = args.get('author_olid', '')
-        if not author_olids and 'key' in result.authors[0]:
-            author_olids = result.authors[0]['key'].replace('/authors/', '')
+        
+        # Process author information
+        author_names = []
+        author_olids = []
+        
+        if result.authors:
+            logger.info("Raw author data from result: %s", result.authors)
+            for author in result.authors:
+                logger.info("Processing author: %s", author)
+                author_name = author['name']
+                
+                # If we have a local author or author_olid from args, use that OLID
+                if local_author and _author_name_matches(author_name, local_author):
+                    author_olid = local_author.olid
+                elif args.get('author_olid') and author_name == args.get('author_name', '').split(' (')[0]:
+                    author_olid = args['author_olid']
+                else:
+                    # Get author OLID from author_key if available
+                    ol_author_id = None
+                    if isinstance(author.get('author_key'), list) and author['author_key']:
+                        ol_author_id = author['author_key'][0]
+                    elif isinstance(author.get('key'), str):
+                        ol_author_id = author['key'].replace('/authors/', '')
+                    author_olid = author.get('olid', ol_author_id)
+                
+                logger.info("Using author_olid: %s for author: %s", author_olid, author_name)
+                
+                author_names.append(author_name)
+                if author_olid:  # Only append if we actually have an OLID
+                    author_olids.append(author_olid)
+                    logger.info("Added author: name=%s, olid=%s", author_name, author_olid)
+                else:
+                    logger.warning("No OLID found for author: %s", author_name)
 
         form_args = {
             'title': display_title,
             'work_olid': work_olid,
-            'author_olids': author_olids,
-            'author_names': author_name
+            'author_names': ', '.join(author_names),
+            'author_olids': ','.join(author_olids)  # No need to filter since we only append valid OLIDs
         }
-        logger.info("Final form_args: %s", form_args)
         
         logger.info("Form args before creating ConfirmBook form: %s", form_args)
         logger.info("Author names from form_args: %s", form_args.get('author_names'))
@@ -420,15 +447,17 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
     # If no results with ID, try author name
     if not results and author_name:
         try:
-            logger.info("Trying search with author name '%s'", author_name)
-            name_results = ol.Work.search(author=author_name, title=title, limit=2)
+            # Strip dates and other parenthetical information before searching
+            clean_name = re.sub(r'\s*\([^)]*\)', '', author_name).strip()
+            logger.info("Trying search with author name '%s'", clean_name)
+            name_results = ol.Work.search(author=clean_name, title=title, limit=2)
             if name_results:
                 results.extend(name_results)
             
             # If still no results, try with simplified author name (remove middle initial)
-            if not results and ' ' in author_name:
+            if not results and ' ' in clean_name:
                 # Split name and check if we have what looks like a middle initial
-                name_parts = author_name.split()
+                name_parts = clean_name.split()
                 if len(name_parts) > 2 and len(name_parts[1]) <= 2:
                     simplified_name = f"{name_parts[0]} {name_parts[-1]}"
                     logger.info("Trying search with simplified author name '%s'", simplified_name)
@@ -437,9 +466,9 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
                         results.extend(simple_results)
                         
             # If still no results, try with last name only
-            if not results and ' ' in author_name:
+            if not results and ' ' in clean_name:
                 # Get the last word as the last name
-                last_name = author_name.split()[-1]
+                last_name = clean_name.split()[-1]
                 logger.info("Trying search with author last name only '%s'", last_name)
                 try:
                     last_name_results = ol.Work.search(author=last_name, title=title, limit=2)
@@ -672,3 +701,26 @@ def _handle_collection_confirmation(request):
         message = f"new_work&title={urllib.parse.quote(collection_title)}"
     
     return HttpResponseRedirect(f'/author/?message={message}')
+
+def _author_name_matches(result_name, local_author):
+    """Check if author names match including alternates"""
+    # Normalize names for comparison
+    result_name = result_name.lower()
+    primary_name = local_author.primary_name.lower()
+    
+    # Direct match on primary name
+    if result_name == primary_name:
+        return True
+            
+    # Check alternate names
+    alt_names = [name.lower() for name in local_author.alternate_names]
+    if result_name in alt_names:
+        return True
+            
+    # Check if result name appears in author alternatives
+    if 'author_alternative_name' in result:
+        ol_alternates = [name.lower() for name in result['author_alternative_name']]
+        if primary_name in ol_alternates:
+            return True
+                
+    return False

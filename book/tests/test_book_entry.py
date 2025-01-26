@@ -399,3 +399,242 @@ class TestCollectionBookEntry:
         # Verify success message includes the collection title
         assert 'added new work' in book_page.get_success_message().lower()
         assert 'the flame of iridar and peril of the starmen' in book_page.get_success_message().lower()
+
+@pytest.mark.django_db
+class TestPenNameBookEntry:
+    def test_book_search_olid_to_name_fallback(self, browser, requests_mock):
+        """Test book search falls back from OLID to full author name."""
+        
+        # Mock OpenLibrary author search response with actual results
+        mock_author_search = [
+            {
+                "birth_date": "1892",
+                "death_date": "1944",
+                "key": "/authors/OL10356294A",
+                "name": "Max Brand",
+                "work_count": 24,
+                "works": ["Young Dr. Kildare"],
+                "subjects": ["Fiction", "Fiction, westerns"]
+            }
+        ]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_author_search
+        )
+
+        # Mock the full author details that will be used during author creation
+        mock_author_details = {
+            'key': '/authors/OL10356294A',
+            'name': 'Max Brand',
+            'personal_name': 'Frederick Schiller Faust',
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
+            'type': {'key': '/type/author'}
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10356294A.json',
+            json=mock_author_details
+        )
+
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the name search (which will succeed)
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Max Brand'],
+                'author_key': ['OL10356294A'],
+                'first_publish_year': 1923,
+                'publisher': ['G.P. Putnam\'s Sons']
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
+        )
+
+        # Start author search and selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+        author_page.select_openlibrary_author("Max Brand (1892-1944)")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+
+        # Verify the confirmation page shows the author name
+        content = browser.page_source
+        assert "Max Brand" in content
+        assert "The Mustang Herder" in content
+        
+        # Complete the entry
+        book_page.confirm_title()
+
+        # Verify work was created
+        work = Work.objects.first()
+        assert work is not None
+        assert work.title == "The Mustang Herder"
+        
+        # Verify author was created with correct name
+        author = work.authors.first()
+        assert author is not None
+        assert author.primary_name == "Max Brand"
+        assert author.olid == "OL10356294A"
+
+    def test_book_search_name_to_lastname_fallback(self, browser, requests_mock):
+        """Test book search falls back from full name to last name."""
+        
+        # Mock OpenLibrary author search response with actual results
+        mock_author_search = [
+            {
+                "birth_date": "1892",
+                "death_date": "1944",
+                "key": "/authors/OL10356294A",
+                "name": "Max Brand",
+                "work_count": 24,
+                "works": ["Young Dr. Kildare"],
+                "subjects": ["Fiction", "Fiction, westerns"]
+            }
+        ]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_author_search
+        )
+
+        # Mock the full author details
+        mock_author_details = {
+            'name': 'Max Brand',
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10356294A.json',
+            json=mock_author_details
+        )
+
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the full name search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the last name search (which will succeed)
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Max Brand'],
+                'author_key': ['OL10356294A'],
+                'first_publish_year': 1923,
+                'publisher': ['G.P. Putnam\'s Sons']
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
+        )
+
+        # Start author search and selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+        author_page.select_openlibrary_author("Max Brand (1892-1944)")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+
+        # Verify the confirmation page shows the author name
+        content = browser.page_source
+        assert "Max Brand" in content
+        assert "The Mustang Herder" in content
+        
+        # Complete the entry
+        book_page.confirm_title()
+
+        # Verify work was created
+        work = Work.objects.first()
+        assert work is not None
+        assert work.title == "The Mustang Herder"
+        
+        # Verify author was created with correct name
+        author = work.authors.first()
+        assert author is not None
+        assert author.primary_name == "Max Brand"
+        assert author.olid == "OL10356294A"
+
+    def test_pen_name_book_fallback_search(self, browser, requests_mock):
+        """Test book search fallback when author name differs but matches through alternates."""
+        
+        # Create local author with pen name
+        author = Author.objects.create(
+            primary_name="Max Brand",
+            search_name="max brand",
+            olid="OL10356294A",
+            alternate_names=["Frederick Faust"]
+        )
+
+        # Mock the direct search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the fallback title-only search with actual OpenLibrary response
+        mock_title_search = {
+            'docs': [{
+                'key': '/works/OL14848834W',
+                'title': 'The mustang herder',
+                'author_name': ['Frederick Faust'],
+                'author_alternative_name': [
+                    'Brand, Max',
+                    'Max Brand (pseud.)',
+                    'Frederick Faust',
+                    'George Owen Baxter'
+                ],
+                'author_key': ['OL2748402A'],
+                'first_publish_year': 1994,
+                'publisher': ['Leisure Books']
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Mustang+Herder&limit=2',
+            json=mock_title_search
+        )
+
+        # Start author search and selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+        author_page.select_local_author("Max Brand")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+        book_page.confirm_title()
+
+        # Verify work was created with proper author
+        work = Work.objects.first()
+        assert work is not None
+        assert work.authors.first() == author  # This is the key test - did we match the right author
+        assert work.olid == "OL14848834W"  # Did we get the right work ID
+        
+        # Verify author was updated with alternate OLID
+        author.refresh_from_db()
+        assert "OL2748402A" in author.alternate_olids
+        assert "Frederick Faust" in author.alternate_names
