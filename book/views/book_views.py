@@ -1,6 +1,6 @@
 import logging
 import urllib.parse
-from django.http import HttpResponseRedirect, HttpResponseBadRequest
+from django.http import HttpResponseRedirect, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm
 from ..models import Author, Work, Edition, Copy, Location, Shelf
@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
+    logger.info("=== Title Entry Request Details ===")
+    logger.info("Session data: %s", dict(request.session))
+    logger.info("POST data: %s", dict(request.POST))
+    logger.info("GET data: %s", dict(request.GET))
+    
+    # Add logging for author context
+    logger.info("=== Author Context ===")
+    logger.info("Selected author OLID: %s", request.session.get('selected_author_olid'))
+    logger.info("Selected author name: %s", request.session.get('selected_author_name'))
+    
     if request.method == 'GET':
         if 'author_olid' in request.GET:
             a_olid = request.GET['author_olid']
@@ -21,6 +31,17 @@ def get_title(request):
                 'author_name': request.GET['author_name'],
                 'author_role': request.GET.get('author_role', 'AUTHOR')
             })
+            # Add logging for form processing after form is created
+            logger.info("=== Form Processing ===")
+            logger.info("Form initial data: %s", {
+                'author_olid': a_olid,
+                'author_name': request.GET['author_name'],
+                'author_role': request.GET.get('author_role', 'AUTHOR')
+            })
+            logger.info("Form is valid: %s", form.is_valid())
+            if not form.is_valid():
+                logger.error("Form errors: %s", form.errors)
+                
             # Attempting to override with runtime value for url as a kludge for how to pass the author OLID
             data_url = "/author/" + a_olid + "/title-autocomplete"
             logger.info("new data url %s", data_url)
@@ -32,6 +53,9 @@ def get_title(request):
             })
         else:
             form = TitleForm()
+            # Add logging for empty form
+            logger.info("=== Form Processing ===")
+            logger.info("Created empty TitleForm")
         return render(request, 'title.html', {'form': form})
     
     if request.method == 'POST':
@@ -51,6 +75,16 @@ def confirm_book(request):
 
 def _handle_book_confirmation(request):
     """Process the confirmed book selection and create local records"""
+    # Add debug logging for the full request context
+    logger.info("=== Book Confirmation Request Details ===")
+    logger.info("Session data: %s", dict(request.session))
+    logger.info("POST data: %s", dict(request.POST))
+    logger.info("GET data: %s", dict(request.GET))
+    
+    # Initialize authors list at the start
+    authors = []
+    editors = []
+    
     # Add detailed POST data logging
     logger.info("Raw POST data:")
     for key, value in request.POST.items():
@@ -103,34 +137,54 @@ def _handle_book_confirmation(request):
     volume_number = request.POST.get('volume_number')
     volume_count = request.POST.get('volume_count')
     
-    # Get author roles
-    author_roles = {}
-    if request.POST.get('author_roles'):
-        try:
-            author_roles = json.loads(request.POST.get('author_roles'))
-            logger.info("Parsed author_roles: %s", author_roles)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse author_roles JSON")
-            logger.warning("Raw author_roles value: %r", request.POST.get('author_roles'))
-    else:
-        logger.warning("No author_roles found in POST data")
-        logger.info("POST data: %s", dict(request.POST))
-
-    # Get author information with detailed logging
-    author_olids = request.POST.get('author_olids', '')
-    author_names = request.POST.get('author_names', '')
+    # Get author names and OLIDs from the form
+    author_names = request.POST.get('author_names', '').split(',')
+    author_olids = request.POST.get('author_olids', '').split(',')
+    author_olids = [olid for olid in author_olids if olid]  # Filter empty strings
+    
+    # Parse author roles from JSON
+    author_roles = json.loads(request.POST.get('author_roles', '{}'))
+    
     logger.info("Author OLIDs: %s", author_olids)
     logger.info("Author Names: %s", author_names)
     logger.info("Author Roles mapping: %s", author_roles)
-
-    # Backwards compatibility - if author_olids is empty but author_olid exists, use that
-    if not author_olids and request.POST.get('author_olid'):
-        author_olids = request.POST.get('author_olid')
-        logger.info("Using singular author_olid for backwards compatibility: %s", author_olids)
     
-    # Split into list, filtering out empty strings
-    author_olids = [olid for olid in author_olids.split(',') if olid]
-    logger.info("Final author_olids list: %s", author_olids)
+    # First try to match by OLID
+    final_author_olids = []
+    for olid in author_olids:
+        if Author.objects.filter(olid=olid).exists():
+            final_author_olids.append(olid)
+            
+    # For any remaining names without OLIDs, try name matching
+    if not final_author_olids:
+        for name in author_names:
+            name = name.strip()
+            if not name:
+                continue
+                
+            # Check if we have a local author match
+            local_authors = Author.objects.all()
+            for local_author in local_authors:
+                if _author_name_matches(name, local_author, {'author_alternative_name': []}):
+                    final_author_olids.append(local_author.olid)
+                    break
+                    
+            if not final_author_olids:
+                logger.warning("No matching author found for name: %s", name)
+    
+    logger.info("Final author_olids list: %s", final_author_olids)
+    
+    # Get authors and editors before any work creation
+    for olid in final_author_olids:
+        try:
+            author = Author.objects.get(olid=olid)
+            if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
+                authors.append(author)
+            else:
+                editors.append(author)
+        except Author.DoesNotExist:
+            logger.warning(f"No matching author found for OLID: {olid}")
+            continue
 
     # Track if this is a new work for the message
     is_new_work = False
@@ -139,34 +193,40 @@ def _handle_book_confirmation(request):
     work_qs = Work.objects.filter(olid=work_olid)
     if not work_qs:
         is_new_work = True
+        
+        # Convert empty strings to None for numeric fields
+        volume_number_val = None if volume_number == '' else volume_number
+        
         work = Work.objects.create(
             olid=work_olid,
             title=clean_title,
             search_name=search_name,
             type='NOVEL',
+            is_multivolume=is_multivolume,
+            volume_number=volume_number_val
         )
         
-        # Add authors and editors based on roles
-        for olid, name in zip(author_olids, author_names.split(',')):
-            author = Author.objects.get_or_fetch(olid)
-            if author:
-                # Ensure author is saved to database
-                if not author.pk:  # If author doesn't have a primary key, it needs to be saved
-                    author.save()
-                    
-                role = author_roles.get(name.strip(), 'AUTHOR')
-                if role == 'EDITOR':
-                    logger.info("Found author object for editor: %s (ID: %s)", author.primary_name, author.pk)
-                    work.editors.add(author)
-                    # Verify addition
-                    logger.info("After adding editor - work.editors count: %d", work.editors.count())
-                else:
-                    logger.info("Found author object for author: %s (ID: %s)", author.primary_name, author.pk)
+        # Add authors and editors
+        for olid in final_author_olids:
+            try:
+                author = Author.objects.get(olid=olid)
+                if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
                     work.authors.add(author)
-                    # Verify addition
-                    logger.info("After adding author - work.authors count: %d", work.authors.count())
-            else:
-                logger.warning("No author found for OLID: %s, name: %s", olid, name)
+                else:
+                    work.editors.add(author)
+            except Author.DoesNotExist:
+                # Try looking up by name instead
+                author_name = next((name for name in author_names if name in author_roles), None)
+                if author_name:
+                    try:
+                        author = Author.objects.get(primary_name=author_name)
+                        if author_roles.get(author_name, 'AUTHOR') == 'AUTHOR':
+                            work.authors.add(author)
+                        else:
+                            work.editors.add(author)
+                    except Author.DoesNotExist:
+                        logger.warning(f"No matching author found for name: {author_name}")
+                        continue
         
         # Verify the additions
         work.refresh_from_db()
@@ -174,7 +234,7 @@ def _handle_book_confirmation(request):
         logger.info("Work editors: %s", [e.primary_name for e in work.editors.all()])
 
         logger.info("Added new Work %s (%s) AKA %s with %d authors/editors", 
-                   clean_title, work_olid, search_name, len(author_olids))
+                   clean_title, work_olid, search_name, len(final_author_olids))
     else:
         work = work_qs[0]
 
@@ -183,15 +243,12 @@ def _handle_book_confirmation(request):
         # Get authors and editors before creating volumes
         authors = []
         editors = []
-        for olid, name in zip(author_olids, author_names.split(',')):
-            if olid:
-                author = Author.objects.get_or_fetch(olid)
-                if author:
-                    role = author_roles.get(name.strip(), 'AUTHOR')
-                    if role == 'EDITOR':
-                        editors.append(author)
-                    else:
-                        authors.append(author)
+        for olid in final_author_olids:
+            author = Author.objects.get(olid=olid)
+            if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
+                authors.append(author)
+            else:
+                editors.append(author)
 
         if entry_type == 'COMPLETE':
             work, volumes = Work.create_volume_set(
@@ -292,6 +349,17 @@ def _handle_book_confirmation(request):
         else:
             message = f"new_work&title={urllib.parse.quote(display_title)}"
 
+    # Add logging for author matching
+    logger.info("=== Author Matching ===")
+    logger.info("Authors found: %s", [a.primary_name for a in authors])
+    logger.info("Editors found: %s", [e.primary_name for e in editors])
+
+    # Add logging before work creation
+    logger.info("=== Work Creation ===")
+    logger.info("Creating work with title: %s", clean_title)
+    logger.info("Work OLID: %s", work_olid)
+    logger.info("Authors to associate: %s", authors)
+
     return HttpResponseRedirect(f'/author/?message={message}')
 
 def _handle_book_search(request):
@@ -379,9 +447,14 @@ def _handle_book_search(request):
                 logger.info("Processing author: %s", author)
                 author_name = author['name']
                 
+                # Convert result to dict for author name matching
+                result_dict = _work_to_dict(result)
+                
                 # If we have a local author or author_olid from args, use that OLID
-                if local_author and _author_name_matches(author_name, local_author):
+                if local_author and _author_name_matches(author_name, local_author, result_dict):
                     author_olid = local_author.olid
+                    # Update the author name to match our local author
+                    author_name = local_author.primary_name
                 elif args.get('author_olid') and author_name == args.get('author_name', '').split(' (')[0]:
                     author_olid = args['author_olid']
                 else:
@@ -431,15 +504,52 @@ def _handle_book_search(request):
     
     return render(request, template, context)
 
+def _work_to_dict(work):
+    """Convert a CachedWork object to a dictionary with the fields we need"""
+    # Get alternate names from both the root level and author data
+    alt_names = getattr(work, 'author_alternative_name', [])
+    
+    # Add alternate names from author data if available
+    for author in getattr(work, 'authors', []) or []:
+        if 'author_alternative_name' in author:
+            alt_names.extend(author['author_alternative_name'])
+
+    return {
+        'author_alternative_name': alt_names,
+        'author_key': getattr(work, 'author_key', []),
+        'author_name': getattr(work, 'author_name', []),
+        'title': getattr(work, 'title', '')
+    }
+
 def _search_openlibrary(ol, title, author_olid=None, author_name=None):
     """Search OpenLibrary for works matching title and author"""
     results = []
+    
+    # Build author context and get local author if available
+    local_author = None
+    if author_olid:
+        local_author = Author.objects.filter(olid=author_olid).first()
+        logger.info("Found local author: %s with OLID %s", 
+                   local_author.primary_name if local_author else None, 
+                   author_olid)
     
     # Try initial search with author ID if available
     if author_olid:
         logger.info("Searching OpenLibrary with author='%s', title='%s', limit=2", author_olid, title)
         try:
             results = ol.Work.search(author=author_olid, title=title, limit=2)
+            # Check author keys in results
+            if results and local_author:
+                for result in results:
+                    if hasattr(result, 'author_key') and result.author_key:
+                        ol_author_id = result.author_key[0] if isinstance(result.author_key, list) else result.author_key
+                        if ol_author_id and ol_author_id != local_author.olid:
+                            logger.info("Found alternate OLID %s for author %s", ol_author_id, local_author.primary_name)
+                            if not local_author.alternate_olids:
+                                local_author.alternate_olids = []
+                            if ol_author_id not in local_author.alternate_olids:
+                                local_author.alternate_olids.append(ol_author_id)
+                                local_author.save()
         except Exception as e:
             logger.exception("Error during OpenLibrary search")
             raise
@@ -452,6 +562,21 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
             logger.info("Trying search with author name '%s'", clean_name)
             name_results = ol.Work.search(author=clean_name, title=title, limit=2)
             if name_results:
+                # Check if any authors match our local author's alternate names
+                for result in name_results:
+                    if result.authors and local_author:
+                        for author in result.authors:
+                            if _author_name_matches(author['name'], local_author, result):
+                                # Found a match - check for alternate OLID
+                                if hasattr(result, 'author_key') and result.author_key:
+                                    ol_author_id = result.author_key[0] if isinstance(result.author_key, list) else result.author_key
+                                    if ol_author_id and ol_author_id != local_author.olid:
+                                        logger.info("Found alternate OLID %s for author %s", ol_author_id, local_author.primary_name)
+                                        if not local_author.alternate_olids:
+                                            local_author.alternate_olids = []
+                                        if ol_author_id not in local_author.alternate_olids:
+                                            local_author.alternate_olids.append(ol_author_id)
+                                            local_author.save()
                 results.extend(name_results)
             
             # If still no results, try with simplified author name (remove middle initial)
@@ -486,6 +611,22 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
         try:
             title_results = ol.Work.search(title=title, limit=2)
             if title_results:
+                # Check if any authors match our local author's alternate names
+                for result in title_results:
+                    if result.authors and local_author:
+                        result_dict = _work_to_dict(result)
+                        for author in result.authors:
+                            if _author_name_matches(author['name'], local_author, result_dict):
+                                # Found a match - check for alternate OLID
+                                if hasattr(result, 'author_key') and result.author_key:
+                                    ol_author_id = result.author_key[0] if isinstance(result.author_key, list) else result.author_key
+                                    if ol_author_id and ol_author_id != local_author.olid:
+                                        logger.info("Found alternate OLID %s for author %s", ol_author_id, local_author.primary_name)
+                                        if not local_author.alternate_olids:
+                                            local_author.alternate_olids = []
+                                        if ol_author_id not in local_author.alternate_olids:
+                                            local_author.alternate_olids.append(ol_author_id)
+                                            local_author.save()
                 results.extend(title_results)
         except Exception as e:
             logger.warning("Error during title-only search: %s", e)
@@ -702,25 +843,29 @@ def _handle_collection_confirmation(request):
     
     return HttpResponseRedirect(f'/author/?message={message}')
 
-def _author_name_matches(result_name, local_author):
-    """Check if author names match including alternates"""
+def _author_name_matches(name, local_author, result):
+    """Check if an author name matches a local author, including alternate names"""
     # Normalize names for comparison
-    result_name = result_name.lower()
-    primary_name = local_author.primary_name.lower()
+    name = name.lower()
+    local_name = local_author.primary_name.lower()
     
-    # Direct match on primary name
-    if result_name == primary_name:
+    # Direct match
+    if name == local_name:
         return True
-            
-    # Check alternate names
-    alt_names = [name.lower() for name in local_author.alternate_names]
-    if result_name in alt_names:
-        return True
-            
-    # Check if result name appears in author alternatives
+        
+    # Check result's alternate names against local primary name
+    alt_names = []
     if 'author_alternative_name' in result:
-        ol_alternates = [name.lower() for name in result['author_alternative_name']]
-        if primary_name in ol_alternates:
+        alt_names.extend(result['author_alternative_name'])
+    
+    alt_names = [alt.lower() for alt in alt_names]
+    if local_name in alt_names:
+        return True
+            
+    # Check local alternate names against result name
+    if local_author.alternate_names:
+        local_alts = [alt.lower() for alt in local_author.alternate_names]
+        if name in local_alts:
             return True
-                
+            
     return False

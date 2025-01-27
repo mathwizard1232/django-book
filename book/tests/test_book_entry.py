@@ -7,6 +7,7 @@ from book.models.work import Work
 from book.tests.pages.author_page import AuthorPage
 from book.tests.pages.book_page import BookPage
 from book.tests.pages.isbn_page import ISBNPage
+from urllib.parse import parse_qs, urlparse
 
 @pytest.mark.django_db
 class TestBasicBookEntry:
@@ -580,21 +581,58 @@ class TestPenNameBookEntry:
     def test_pen_name_book_fallback_search(self, browser, requests_mock):
         """Test book search fallback when author name differs but matches through alternates."""
         
-        # Create local author with pen name
+        from urllib.parse import parse_qs, urlparse
+
+        def url_matcher(url, params):
+            """Create a matcher that checks for exact query parameters"""
+            def match(request):
+                query = parse_qs(urlparse(request.url).query)
+                expected = {k: [v] if isinstance(v, str) else v for k, v in params.items()}
+                return query == expected
+            return match
+
+        # Create local author with just the primary name - no alternates yet
         author = Author.objects.create(
             primary_name="Max Brand",
             search_name="max brand",
-            olid="OL10356294A",
-            alternate_names=["Frederick Faust"]
+            olid="OL10356294A"
+            # No alternate_names - these should be discovered
         )
 
-        # Mock the direct search (which will fail)
+        # Mock the OLID search (which will fail)
         requests_mock.get(
-            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
-            json={'docs': []}
+            'https://openlibrary.org/search.json',
+            json={'docs': [], 'num_found': 0},
+            additional_matcher=url_matcher('search.json', {
+                'author': 'OL10356294A',
+                'title': 'The Mustang Herder',
+                'limit': '2'
+            })
         )
 
-        # Mock the fallback title-only search with actual OpenLibrary response
+        # Mock the full name search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json',
+            json={'docs': [], 'num_found': 0},
+            additional_matcher=url_matcher('search.json', {
+                'author': 'Max Brand',
+                'title': 'The Mustang Herder',
+                'limit': '2'
+            })
+        )
+
+        # Mock the last name search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json',
+            json={'docs': [], 'num_found': 0},
+            additional_matcher=url_matcher('search.json', {
+                'author': 'Brand',
+                'title': 'The Mustang Herder',
+                'limit': '2'
+            })
+        )
+
+        # Mock the fallback title-only search (which will succeed)
         mock_title_search = {
             'docs': [{
                 'key': '/works/OL14848834W',
@@ -609,11 +647,16 @@ class TestPenNameBookEntry:
                 'author_key': ['OL2748402A'],
                 'first_publish_year': 1994,
                 'publisher': ['Leisure Books']
-            }]
+            }],
+            'num_found': 1
         }
         requests_mock.get(
-            'https://openlibrary.org/search.json?title=The+Mustang+Herder&limit=2',
-            json=mock_title_search
+            'https://openlibrary.org/search.json',
+            json=mock_title_search,
+            additional_matcher=url_matcher('search.json', {
+                'title': 'The Mustang Herder',
+                'limit': '2'
+            })
         )
 
         # Start author search and selection
@@ -631,10 +674,17 @@ class TestPenNameBookEntry:
         # Verify work was created with proper author
         work = Work.objects.first()
         assert work is not None
-        assert work.authors.first() == author  # This is the key test - did we match the right author
-        assert work.olid == "OL14848834W"  # Did we get the right work ID
+        assert work.authors.first() == author  # Should match our existing author
+        assert work.olid == "OL14848834W"
         
-        # Verify author was updated with alternate OLID
+        # Verify author was updated with alternate info
         author.refresh_from_db()
         assert "OL2748402A" in author.alternate_olids
         assert "Frederick Faust" in author.alternate_names
+        assert "Brand, Max" in author.alternate_names
+        assert "Max Brand (pseud.)" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names
+
+        # Verify success message
+        assert 'added new work' in book_page.get_success_message().lower()
+        assert 'the mustang herder' in book_page.get_success_message().lower()

@@ -77,6 +77,7 @@ class CachedOpenLibrary(OpenLibrary):
                     logger.info("Raw OpenLibrary response: num_found=%s, docs=%s", 
                               data.get('num_found'), len(data.get('docs', [])))
                     if not data.get('docs'):
+                        logger.info("No docs found in OpenLibrary response")
                         return []
                     
                     # Process results and restructure to match expected format
@@ -90,8 +91,10 @@ class CachedOpenLibrary(OpenLibrary):
                             work.authors = [{'name': name} for name in doc.get('author_name', [])]
                             work.identifiers = {'olid': [doc['olid']]} if 'olid' in doc else {'olid': [doc['key'].split('/')[-1]]}
                             works.append(work)
+                        logger.info("Multiple results found in OpenLibrary response")
                         return works
                     else:
+                        logger.info("Single result found in OpenLibrary response")
                         doc = data['docs'][0]
                         work = cls(doc['key'].split('/')[-1])
                         work.title = doc['title']
