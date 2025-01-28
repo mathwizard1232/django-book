@@ -688,3 +688,76 @@ class TestPenNameBookEntry:
         # Verify success message
         assert 'added new work' in book_page.get_success_message().lower()
         assert 'the mustang herder' in book_page.get_success_message().lower()
+
+    @pytest.mark.skip(reason="Need to implement enhanced author selection UI first")
+    def test_pen_name_display_format(self, browser, requests_mock):
+        """Test that author display name properly formats pen name while maintaining searchable name.
+        
+        NOTE: This is an initial draft. Before implementing this test fully, we need to:
+        1. Update the author selection UI to show both real name and pen name
+        2. Modify how we handle the author selection to parse the combined name format
+        3. Implement the primary_name formatting logic
+        """
+        
+        # Mock OpenLibrary author search response
+        mock_author_search = [{
+            "key": "/authors/OL10356294A",
+            "name": "Frederick Schiller Faust",
+            "alternate_names": ["Max Brand"],
+            "birth_date": "1892",
+            "death_date": "1944"
+        }]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_author_search
+        )
+
+        # Mock the full author details
+        mock_author_details = {
+            'key': '/authors/OL10356294A',
+            'name': 'Frederick Schiller Faust',
+            'alternate_names': ['Max Brand', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10356294A.json',
+            json=mock_author_details
+        )
+
+        # Mock the work search response
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Max Brand'],
+                'author_key': ['OL10356294A'],
+                'first_publish_year': 1923
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
+        )
+
+        # Start author search and selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+        author_page.select_openlibrary_author("Frederick Schiller Faust [also: Max Brand]")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+        book_page.confirm_title()
+
+        # Verify author was created with correct name formatting
+        author = Author.objects.get(olid="OL10356294A")
+        assert author.primary_name == "Frederick 'Max Brand' Faust"
+        assert author.search_name == "max brand"
+        assert "Max Brand" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names
+
+        # Verify the display shows the formatted name
+        assert author.display_name() == "Frederick 'Max Brand' Faust (1892-1944)"

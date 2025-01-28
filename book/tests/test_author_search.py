@@ -218,4 +218,107 @@ class TestAuthorSearch:
         # Verify dates are present in the result text
         result_texts = [r.text for r in results]
         assert any("John Smith (1900-1980)" in text for text in result_texts)
-        assert any("John Smith" in text and "(1900-1980)" not in text for text in result_texts) 
+        assert any("John Smith" in text and "(1900-1980)" not in text for text in result_texts)
+
+    def test_author_search_result_ranking(self, browser, requests_mock):
+        """Test that author search results are properly ranked and best match is selected."""
+        # Mock OpenLibrary API response with multiple results of varying quality
+        mock_response = [
+            {
+                "key": "/authors/OL12946735A",
+                "name": "Max Brand Max Brand",
+                "work_count": 2,
+                "works": ["Ronicky Doone Illustared"],
+                "subjects": []
+            },
+            {
+                "key": "/authors/OL10352592A",
+                "name": "Max Brand",
+                "work_count": 1636,
+                "works": ["Gunman's Reckoning Illustrated"],
+                "subjects": [
+                    "Fiction, westerns",
+                    "Fiction, general",
+                    "Frontier and pioneer life, fiction"
+                ]
+            },
+            {
+                "birth_date": "1892",
+                "death_date": "1944",
+                "key": "/authors/OL10356294A",
+                "name": "Max Brand",
+                "work_count": 24,
+                "works": ["Young Dr. Kildare"],
+                "subjects": ["Fiction", "Fiction, westerns"]
+            },
+            {
+                "key": "/authors/OL10510226A",
+                "name": "Max brand",
+                "work_count": 16,
+                "works": ["Valley Thieves"],
+                "subjects": []
+            },
+            {
+                "key": "/authors/OL12236824A",
+                "name": "max brand",
+                "work_count": 2,
+                "works": ["Valley Vultures"],
+                "subjects": []
+            }
+        ]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_response
+        )
+
+        # Mock the full author details for the best match
+        mock_author_details = {
+            'key': '/authors/OL10352592A',
+            'name': 'Frederick Schiller Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': ['Max Brand', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
+            'bio': 'American author best known by his pen name Max Brand'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10352592A.json',
+            json=mock_author_details
+        )
+
+        # Initialize page and perform search
+        page = AuthorPage(browser)
+        page.navigate()
+        page.search_author("Max Brand")
+
+        # Wait for and verify results
+        wait = WebDriverWait(browser, 10)
+        results = wait.until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME, "dropdown-item"))
+        )
+
+        # Verify results are properly ranked
+        result_texts = [r.text for r in results]
+        
+        # The entry with high work count should be first
+        assert "Max Brand" in result_texts[0]
+        assert "(1636 works)" in result_texts[0]
+        
+        # The entry with birth/death dates should be second
+        assert "Max Brand (1892-1944)" in result_texts[1]
+        
+        # Verify that selecting the top result automatically redirects to title page
+        # (since it's a high-confidence match with high work count)
+        page.select_openlibrary_author(result_texts[0])
+        
+        # Should skip confirmation and go straight to title
+        wait.until(EC.url_contains('/title'))
+        
+        # Verify the author was created locally with complete information
+        author = Author.objects.get(olid="OL10352592A")
+        assert author.primary_name == "Frederick 'Max Brand' Faust"
+        assert author.search_name == "max brand"
+        assert author.birth_date == "29 May 1892"
+        assert author.death_date == "12 May 1944"
+        assert "Max Brand" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names 
