@@ -28,11 +28,11 @@ class AuthorManager(Manager):
 
 class Author(models.Model):
     """Local representation of an author, based on OpenLibrary information"""
-    # Open Library ID
-    # TODO: This isn't actually a perfect unique identifier. We should handle OpenLibrary duplicates
-    # However, we can keep this as a primary key because we will choose their primary one as our stable base.
-    # Eventually we can record duplicates and try to figure out how to feed that back into their system too.
-    olid = models.CharField(max_length=100, primary_key=True)
+    # Add auto-incrementing primary key
+    id = models.BigAutoField(primary_key=True)
+    
+    # Make olid unique but not primary key
+    olid = models.CharField(max_length=100, unique=True)
 
     # Display name to be used here (various other forms will always exist)
     # For instance, we might have "Frederick 'Max Brand' Faust"

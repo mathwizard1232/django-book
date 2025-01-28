@@ -1,6 +1,8 @@
 # LibraCents (or maybe Super Book or maybe Django-Book)
 A value-conscious personal library management system that prioritizes quick, efficient book entry and organization.
 
+WARNING: Any data stored in this is not yet secure. I'm adding a migration that removes the data (changed primary key on Author and mapping got broken, didn't have enough data to be worth trying to save / restore it) and this type of thing may happen again during development. I do eventually plan to have a hosted version of this when it's more fully featured and stable and between a local version and hosted backup and a less bleeding-edge development style at that time, this shouldn't be such a risk eventually. But I don't want anyone trying to enter thousands of books in this yet. It'll be ready for that eventually (for my own use if nothing else) but not there yet.
+
 ## Credits
 
 Background photo of old books taken by ben.gallagher of St John's College Old Library from https://www.flickr.com/photos/26848985@N02/4101516350 via https://search.creativecommons.org/photos/da0fe7d4-981e-4077-b691-d3e7c3435bd4

@@ -6,6 +6,7 @@ class AuthorAdmin(admin.ModelAdmin):
     list_display = ('primary_name', 'olid', 'search_name')
     search_fields = ('primary_name', 'search_name', 'olid')
     list_filter = ('work__type',)  # Filter by types of works they've written
+    actions = ['delete_selected']  # Explicitly enable delete action
 
 class EditionInline(admin.TabularInline):
     model = Edition
