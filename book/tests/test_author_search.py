@@ -399,3 +399,122 @@ class TestAuthorSearch:
         assert author.death_date == "12 May 1944"
         assert "Max Brand (pseud.)" in author.alternate_names
         assert "George Owen Baxter" in author.alternate_names 
+
+    def test_author_confirmation_page_best_results(self, browser, requests_mock):
+        """Test that confirmation page shows the best quality results."""
+        # Mock OpenLibrary API response with multiple results of varying quality
+        mock_response = [
+            {
+                "key": "/authors/OL12946735A",
+                "name": "Max Brand Max Brand",
+                "work_count": 2,
+                "works": ["Ronicky Doone Illustared"],
+                "subjects": []
+            },
+            {
+                "key": "/authors/OL10352592A",
+                "name": "Max Brand",
+                "work_count": 1636,
+                "works": ["Gunman's Reckoning Illustrated"],
+                "subjects": [
+                    "Fiction, westerns",
+                    "Fiction, general",
+                    "Frontier and pioneer life, fiction"
+                ]
+            },
+            {
+                "birth_date": "1892",
+                "death_date": "1944",
+                "key": "/authors/OL10356294A",
+                "name": "Max Brand",
+                "work_count": 24,
+                "works": ["Young Dr. Kildare"],
+                "subjects": ["Fiction", "Fiction, westerns"]
+            },
+            {
+                "key": "/authors/OL10510226A",
+                "name": "Max brand",
+                "work_count": 16,
+                "works": ["Valley Thieves"],
+                "subjects": []
+            }
+        ]
+        
+        # Mock both the dropdown autocomplete (limit=5) and the confirmation page search (limit=2)
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=2',
+            json=mock_response[:2]  # Just the first two results
+        )
+        
+        # Mock the full author details for both potential matches
+        mock_author_details_1 = {
+            'type': {'key': '/type/author'},
+            'name': 'Max Brand Max Brand',
+            'key': '/authors/OL12946735A',
+            'works': ['Ronicky Doone Illustared'],
+            'source_records': ['bwb:9798713810443'],
+            'latest_revision': 1,
+            'revision': 1,
+            'created': {'type': '/type/datetime', 'value': '2023-06-17T17:26:41.132141'},
+            'last_modified': {'type': '/type/datetime', 'value': '2023-06-17T17:26:41.132141'}
+        }
+        
+        mock_author_details_2 = {
+            'key': '/authors/OL10352592A',
+            'name': 'Frederick Schiller Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': ['Max Brand', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
+            'bio': 'American author best known by his pen name Max Brand'
+        }
+        
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL12946735A.json',
+            json=mock_author_details_1
+        )
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10352592A.json',
+            json=mock_author_details_2
+        )
+
+        # Initialize page and perform search
+        page = AuthorPage(browser)
+        page.navigate()
+        page.search_author("Max Brand")
+
+        # Submit the form to go to confirmation page
+        search_form = browser.find_element(By.TAG_NAME, 'form')
+        search_form.submit()
+
+        # On confirmation page, verify we got the best two results
+        wait = WebDriverWait(browser, 10)
+        content = browser.page_source
+        
+        # First result should be the one with highest work count
+        assert "Max Brand (1636 works)" in content
+        assert "Fiction, westerns" in content
+        
+        # Second result should be the one with birth/death dates
+        assert "Max Brand (1892-1944)" in content
+        assert "Young Dr. Kildare" in content
+        
+        # The low quality result should not appear
+        assert "Max Brand Max Brand" not in content
+        assert "Ronicky Doone Illustared" not in content
+
+        # Select the best match
+        page.confirm_new_author()
+
+        # Verify the author was created with complete information
+        author = Author.objects.get(olid="OL10352592A")
+        assert author.primary_name == "Frederick Schiller Faust"
+        assert author.search_name == "Max Brand"
+        assert author.birth_date == "29 May 1892"
+        assert author.death_date == "12 May 1944"
+        assert "Max Brand" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names 
