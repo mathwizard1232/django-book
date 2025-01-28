@@ -330,3 +330,68 @@ class TestAuthorSearch:
         assert author.death_date == "12 May 1944"
         assert "Max Brand" in author.alternate_names
         assert "George Owen Baxter" in author.alternate_names 
+
+    def test_author_confirmation_page(self, browser, requests_mock):
+        """Test searching for an author and confirming via the confirmation page."""
+        # Mock OpenLibrary API response with pen name info
+        mock_response = [{
+            'key': '/authors/OL2748402A',
+            'name': 'Frederick Faust',
+            'work_count': 100,
+            'alternate_names': ['Max Brand (pseud.)', 'George Owen Baxter'],
+            'type': {'key': '/type/author'}
+        }]
+        # Mock both the dropdown autocomplete (limit=5) and the confirmation page search (limit=2)
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=2',
+            json=mock_response
+        )
+
+        # Mock the full author details that will be fetched for confirmation
+        mock_author_details = {
+            'name': 'Frederick Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': ['Max Brand (pseud.)', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL2748402A.json',
+            json=mock_author_details
+        )
+
+        # Initialize page and perform search
+        page = AuthorPage(browser)
+        page.navigate()
+        page.search_author("Max Brand")
+
+        # Instead of selecting from dropdown, submit the form to go to confirmation page
+        search_form = browser.find_element(By.TAG_NAME, 'form')
+        search_form.submit()
+
+        # On confirmation page, verify the author details are displayed
+        wait = WebDriverWait(browser, 10)
+        content = browser.page_source
+        assert "Frederick Faust" in content
+        assert "Max Brand" in content
+        assert "29 May 1892" in content
+        assert "12 May 1944" in content
+
+        # Confirm the author
+        page.confirm_new_author()
+
+        # Should redirect to title page
+        wait.until(EC.url_contains('/title'))
+
+        # Verify the author was created locally with complete information
+        author = Author.objects.get(olid="OL2748402A")
+        assert author.primary_name == "Frederick Faust"
+        assert author.search_name == "max brand"
+        assert author.birth_date == "29 May 1892"
+        assert author.death_date == "12 May 1944"
+        assert "Max Brand (pseud.)" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names 
