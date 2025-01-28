@@ -463,7 +463,7 @@ class TestPenNameBookEntry:
         author_page = AuthorPage(browser)
         author_page.navigate()
         author_page.search_author("Max Brand")
-        author_page.select_openlibrary_author("Max Brand (1892-1944)")
+        author_page.select_openlibrary_author("Max Brand (24 works)")
 
         # Handle title entry
         book_page = BookPage(browser)
@@ -552,7 +552,7 @@ class TestPenNameBookEntry:
         author_page = AuthorPage(browser)
         author_page.navigate()
         author_page.search_author("Max Brand")
-        author_page.select_openlibrary_author("Max Brand (1892-1944)")
+        author_page.select_openlibrary_author("Max Brand (24 works)")
 
         # Handle title entry
         book_page = BookPage(browser)
