@@ -152,10 +152,11 @@ def _handle_book_confirmation(request):
                 # Check both authors array and author_key field
                 if hasattr(work, 'authors'):
                     for author in work.authors:
-                        if hasattr(author, 'key'):
+                        if isinstance(author, dict) and 'key' in author:
                             # Extract OLID from key (e.g., /authors/OL123A -> OL123A)
-                            olid = author.key.split('/')[-1]
-                            if olid and olid not in author_olids:
+                            key = author['key']
+                            olid = key.split('/')[-1]
+                            if olid and isinstance(olid, str) and olid not in author_olids:
                                 author_olids.append(olid)
                                 logger.info("Added author OLID from work.authors: %s", olid)
                 if hasattr(work, 'author_key'):
