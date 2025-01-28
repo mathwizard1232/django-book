@@ -65,6 +65,8 @@ class TestAuthorSearch:
             'key': '/authors/OL2748402A',
             'name': 'Frederick Faust',
             'work_count': 100,
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
             'alternate_names': ['Max Brand (pseud.)', 'George Owen Baxter'],
             'type': {'key': '/type/author'}
         }]
@@ -338,6 +340,8 @@ class TestAuthorSearch:
             'key': '/authors/OL2748402A',
             'name': 'Frederick Faust',
             'work_count': 100,
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
             'alternate_names': ['Max Brand (pseud.)', 'George Owen Baxter'],
             'type': {'key': '/type/author'}
         }]
@@ -390,7 +394,7 @@ class TestAuthorSearch:
         # Verify the author was created locally with complete information
         author = Author.objects.get(olid="OL2748402A")
         assert author.primary_name == "Frederick Faust"
-        assert author.search_name == "max brand"
+        assert author.search_name == "Max Brand"
         assert author.birth_date == "29 May 1892"
         assert author.death_date == "12 May 1944"
         assert "Max Brand (pseud.)" in author.alternate_names

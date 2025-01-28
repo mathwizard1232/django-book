@@ -65,7 +65,7 @@ class AuthorPage(BasePage):
     def confirm_new_author(self):
         """Confirm a new author on the confirmation page."""
         submit_button = self.wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "input.btn.btn-primary"))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn.btn-primary"))
         )
         submit_button.click()
         

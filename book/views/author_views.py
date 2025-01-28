@@ -62,7 +62,7 @@ def confirm_author(request):
         first_author = results[0]
         first_olid = first_author['key'][9:]  # remove "/authors/" prefix
         first_author_full = ol.Author.get(first_olid)
-        logger.info("First author full details: %s", vars(first_author_full))
+        logger.info("First author full details: %s", first_author_full)
         
         # Enhanced author details
         first_author_details = {
@@ -70,11 +70,11 @@ def confirm_author(request):
             'author_name': first_author['name'],
             'search_name': name,
             'author_role': author_role,
-            'birth_date': getattr(first_author_full, 'birth_date', ''),
-            'death_date': getattr(first_author_full, 'death_date', ''),
-            'alternate_names': getattr(first_author_full, 'alternate_names', []),
-            'personal_name': getattr(first_author_full, 'personal_name', ''),
-            'bio': getattr(first_author_full, 'bio', '')
+            'birth_date': first_author_full.get('birth_date', ''),
+            'death_date': first_author_full.get('death_date', ''),
+            'alternate_names': first_author_full.get('alternate_names', []),
+            'personal_name': first_author_full.get('personal_name', ''),
+            'bio': first_author_full.get('bio', '')
         }
         
         form = ConfirmAuthorFormWithBio(first_author_details) if first_author_details['bio'] else ConfirmAuthorForm(first_author_details)
@@ -90,11 +90,11 @@ def confirm_author(request):
                 'author_olid': second_olid,
                 'author_name': second_author['name'],
                 'search_name': name,
-                'birth_date': getattr(second_author_full, 'birth_date', ''),
-                'death_date': getattr(second_author_full, 'death_date', ''),
-                'alternate_names': getattr(second_author_full, 'alternate_names', []),
-                'personal_name': getattr(second_author_full, 'personal_name', ''),
-                'bio': getattr(second_author_full, 'bio', '')
+                'birth_date': second_author_full.get('birth_date', ''),
+                'death_date': second_author_full.get('death_date', ''),
+                'alternate_names': second_author_full.get('alternate_names', []),
+                'personal_name': second_author_full.get('personal_name', ''),
+                'bio': second_author_full.get('bio', '')
             }
             
             form2 = ConfirmAuthorFormWithBio(second_author_details) if second_author_details['bio'] else ConfirmAuthorForm(second_author_details)
@@ -118,14 +118,21 @@ def confirm_author(request):
 
         author_lookup_qs = Author.objects.filter(olid=olid)
         if not author_lookup_qs:
+            # Get full author details from OpenLibrary for creation
+            ol = CachedOpenLibrary()
+            author_full = ol.Author.get(olid)
+            
             author = Author.objects.create(
                 olid=olid,
                 primary_name=name,
                 search_name=search_name,
+                birth_date=author_full.get('birth_date', ''),
+                death_date=author_full.get('death_date', ''),
+                alternate_names=author_full.get('alternate_names', [])
             )
             logger.info("Recorded new author: %s (%s) AKA %s)", name, olid, search_name)
 
-        # Finally, redirect them off to the title lookup
+        # Redirect to title lookup
         return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
 
 """@require_GET
