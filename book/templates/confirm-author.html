@@ -18,8 +18,16 @@
                         {{ form.alternate_names }}
                         {{ form.personal_name }}
                         
+                        <!-- Debug output -->
+                        <div>
+                            Author name: {{ first_author_details.author_name }}<br>
+                            Work count: {{ first_author_details.work_count }}<br>
+                        </div>
+
                         <div class="mb-3">
-                            <label class="form-label">Author Name</label>
+                            <label for="id_author_name" class="form-label">
+                                {{ first_author_details.author_name }}{% if first_author_details.work_count %} ({{ first_author_details.work_count }} works){% endif %}
+                            </label>
                             {{ form.author_name }}
                             {% if first_author_details.birth_date or first_author_details.death_date %}
                                 <div class="text-muted">
@@ -71,7 +79,9 @@
                         
                         <!-- Author Name -->
                         <div class="form-group">
-                            <label for="id_author_name">Author Name</label>
+                            <label for="id_author_name">
+                                {{ second_author_details.author_name }}{% if second_author_details.birth_date and second_author_details.death_date %} ({{ second_author_details.birth_date }}-{{ second_author_details.death_date }}){% endif %}
+                            </label>
                             {{ form2.author_name }}
                         </div>
 

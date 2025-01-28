@@ -43,6 +43,36 @@ def get_author(request):
     logger.info("Rendering template with context: %s", context)
     return render(request, 'author.html', context)
 
+def sort_authors_by_quality(authors):
+    """
+    Sort authors by quality metrics in this order:
+    1. High work count (>100)
+    2. Has birth/death dates
+    3. Has subjects
+    4. Raw work count
+    """
+    def author_quality_score(author):
+        score = 0
+        # High work count is most important
+        work_count = author.get('work_count', 0)
+        if work_count > 100:
+            score += 1000
+        
+        # Having biographical data is next most important
+        if author.get('birth_date') or author.get('death_date'):
+            score += 500
+            
+        # Having subjects suggests a well-documented author
+        if author.get('subjects'):
+            score += len(author.get('subjects', []))
+            
+        # Finally, use raw work count as a tiebreaker
+        score += work_count
+        
+        return score
+    
+    return sorted(authors, key=author_quality_score, reverse=True)
+
 def confirm_author(request):
     """ Do a lookup of this author by the name sent and display and confirm details from OpenLibrary """
     if request.method == 'GET':
@@ -55,11 +85,23 @@ def confirm_author(request):
             return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
             
         ol = CachedOpenLibrary()
-        results = ol.Author.search(name, 2)
-        if not results:
+        response = ol.Author.search(name, limit=5)  # Get more results to sort from
+        logger.info("Initial search response: %s", response)
+        
+        # Extract docs array from response
+        authors = response.get('docs', []) if isinstance(response, dict) else response
+        logger.info("Authors from response: %s", authors)
+        
+        # Sort by quality and take top 2
+        authors = sort_authors_by_quality(authors)
+        logger.info("Sorted results: %s", authors)
+        authors = authors[:2]
+        logger.info("Top 2 results: %s", authors)
+        
+        if not authors:
             return HttpResponseRedirect('/author')  # If we get a bad request, just have them try again
         
-        first_author = results[0]
+        first_author = authors[0]
         first_olid = first_author['key'][9:]  # remove "/authors/" prefix
         first_author_full = ol.Author.get(first_olid)
         logger.info("First author full details: %s", first_author_full)
@@ -74,28 +116,35 @@ def confirm_author(request):
             'death_date': first_author_full.get('death_date', ''),
             'alternate_names': first_author_full.get('alternate_names', []),
             'personal_name': first_author_full.get('personal_name', ''),
-            'bio': first_author_full.get('bio', '')
+            'bio': first_author_full.get('bio', ''),
+            'work_count': first_author.get('work_count', 0)
         }
+        logger.info("First author details for template: %s", first_author_details)
         
         form = ConfirmAuthorFormWithBio(first_author_details) if first_author_details['bio'] else ConfirmAuthorForm(first_author_details)
 
         form2 = None
-        if len(results) > 1:
-            second_author = results[1]
+        second_author_details = None  # Initialize to None by default
+        if len(authors) > 1:
+            second_author = authors[1]
             second_olid = second_author['key'][9:]
             second_author_full = ol.Author.get(second_olid)
+            logger.info("Second author full details: %s", second_author_full)
             
             # Enhanced second author details
             second_author_details = {
                 'author_olid': second_olid,
                 'author_name': second_author['name'],
                 'search_name': name,
+                'author_role': author_role,
                 'birth_date': second_author_full.get('birth_date', ''),
                 'death_date': second_author_full.get('death_date', ''),
                 'alternate_names': second_author_full.get('alternate_names', []),
                 'personal_name': second_author_full.get('personal_name', ''),
-                'bio': second_author_full.get('bio', '')
+                'bio': second_author_full.get('bio', ''),
+                'work_count': second_author.get('work_count', 0)
             }
+            logger.info("Second author details for template: %s", second_author_details)
             
             form2 = ConfirmAuthorFormWithBio(second_author_details) if second_author_details['bio'] else ConfirmAuthorForm(second_author_details)
 
@@ -103,8 +152,9 @@ def confirm_author(request):
             'form': form, 
             'form2': form2,
             'first_author_details': first_author_details,
-            'second_author_details': second_author_details if form2 else None
+            'second_author_details': second_author_details
         }
+        logger.info("Rendering template with context: %s", context)
         return render(request, 'confirm-author.html', context)
 
     if request.method == 'POST':
