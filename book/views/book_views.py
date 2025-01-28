@@ -152,12 +152,24 @@ def _handle_book_confirmation(request):
     # First try to match by OLID
     final_author_olids = []
     for olid in author_olids:
-        if Author.objects.filter(olid=olid).exists():
+        author = Author.objects.filter(olid=olid).first()
+        if author:
             final_author_olids.append(olid)
-            
-    # For any remaining names without OLIDs, try name matching
-    if not final_author_olids:
-        for name in author_names:
+        else:
+            # If we have an OLID but no matching author, create one
+            for name in author_names:
+                if author_roles.get(name) == "AUTHOR":
+                    author = Author.objects.create(
+                        primary_name=name,
+                        search_name=name.lower(),
+                        olid=olid
+                    )
+                    final_author_olids.append(olid)
+                    break
+
+    # For any remaining names without matched OLIDs, try name matching
+    for name in author_names:
+        if not final_author_olids:  # Only try name matching if we haven't found by OLID
             name = name.strip()
             if not name:
                 continue
@@ -166,12 +178,18 @@ def _handle_book_confirmation(request):
             local_authors = Author.objects.all()
             for local_author in local_authors:
                 if _author_name_matches(name, local_author, {'author_alternative_name': []}):
-                    final_author_olids.append(local_author.olid)
+                    if local_author.olid not in final_author_olids:
+                        final_author_olids.append(local_author.olid)
                     break
-                    
-            if not final_author_olids:
-                logger.warning("No matching author found for name: %s", name)
-    
+            
+            # If still no match, create new author
+            if not final_author_olids and author_roles.get(name) == "AUTHOR":
+                new_author = Author.objects.create(
+                    primary_name=name,
+                    search_name=name.lower()
+                )
+                final_author_olids.append(new_author.olid)
+
     logger.info("Final author_olids list: %s", final_author_olids)
     
     # Get authors and editors before any work creation
@@ -855,8 +873,11 @@ def _author_name_matches(name, local_author, result):
         
     # Check result's alternate names against local primary name
     alt_names = []
-    if 'author_alternative_name' in result:
-        alt_names.extend(result['author_alternative_name'])
+    if isinstance(result, dict):  # Handle both dict and OpenLibrary result objects
+        if 'author_alternative_name' in result:
+            alt_names.extend(result['author_alternative_name'])
+        elif 'author_alternative_names' in result:  # Handle possible alternate key
+            alt_names.extend(result['author_alternative_names'])
     
     alt_names = [alt.lower() for alt in alt_names]
     if local_name in alt_names:
@@ -866,6 +887,17 @@ def _author_name_matches(name, local_author, result):
     if local_author.alternate_names:
         local_alts = [alt.lower() for alt in local_author.alternate_names]
         if name in local_alts:
+            return True
+
+    # Check if the OpenLibrary author has the same OLID
+    if isinstance(result, dict):
+        ol_author_id = None
+        if isinstance(result.get('author_key'), list) and result['author_key']:
+            ol_author_id = result['author_key'][0]
+        elif isinstance(result.get('key'), str):
+            ol_author_id = result['key'].replace('/authors/', '')
+        
+        if ol_author_id and ol_author_id == local_author.olid:
             return True
             
     return False
