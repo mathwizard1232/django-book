@@ -142,6 +142,35 @@ def _handle_book_confirmation(request):
     author_olids = request.POST.get('author_olids', '').split(',')
     author_olids = [olid for olid in author_olids if olid]  # Filter empty strings
     
+    # If we don't have author OLIDs, try to get them from OpenLibrary work
+    if not author_olids:
+        ol = CachedOpenLibrary()
+        try:
+            work = ol.Work.get(work_olid)
+            if work:
+                logger.info("Found OpenLibrary work: %s", work)
+                # Check both authors array and author_key field
+                if hasattr(work, 'authors'):
+                    for author in work.authors:
+                        if hasattr(author, 'key'):
+                            # Extract OLID from key (e.g., /authors/OL123A -> OL123A)
+                            olid = author.key.split('/')[-1]
+                            if olid and olid not in author_olids:
+                                author_olids.append(olid)
+                                logger.info("Added author OLID from work.authors: %s", olid)
+                if hasattr(work, 'author_key'):
+                    if isinstance(work.author_key, list):
+                        for key in work.author_key:
+                            if key and key not in author_olids:
+                                author_olids.append(key)
+                                logger.info("Added author OLID from work.author_key: %s", key)
+                    else:
+                        if work.author_key and work.author_key not in author_olids:
+                            author_olids.append(work.author_key)
+                            logger.info("Added author OLID from work.author_key: %s", work.author_key)
+        except Exception as e:
+            logger.warning("Error getting work details from OpenLibrary: %s", e)
+    
     # Parse author roles from JSON
     author_roles = json.loads(request.POST.get('author_roles', '{}'))
     
@@ -169,26 +198,34 @@ def _handle_book_confirmation(request):
 
     # For any remaining names without matched OLIDs, try name matching
     for name in author_names:
-        if not final_author_olids:  # Only try name matching if we haven't found by OLID
-            name = name.strip()
-            if not name:
-                continue
-                
-            # Check if we have a local author match
-            local_authors = Author.objects.all()
-            for local_author in local_authors:
-                if _author_name_matches(name, local_author, {'author_alternative_name': []}):
-                    if local_author.olid not in final_author_olids:
-                        final_author_olids.append(local_author.olid)
-                    break
+        name = name.strip()
+        if not name:
+            continue
             
-            # If still no match, create new author
-            if not final_author_olids and author_roles.get(name) == "AUTHOR":
-                new_author = Author.objects.create(
-                    primary_name=name,
-                    search_name=name.lower()
-                )
-                final_author_olids.append(new_author.olid)
+        # Check if we have a local author match
+        local_authors = Author.objects.all()
+        for local_author in local_authors:
+            if _author_name_matches(name, local_author, {'author_alternative_name': []}):
+                if local_author.olid not in final_author_olids:
+                    final_author_olids.append(local_author.olid)
+                break
+        
+        # If still no match and we have work info with matching name, use that author's OLID
+        if not final_author_olids and existing_work and hasattr(existing_work, 'authors'):
+            for work_author in existing_work.authors:
+                if hasattr(work_author, 'key'):
+                    work_author_olid = str(work_author.key).split('/')[-1]
+                    if work_author_olid:
+                        final_author_olids.append(work_author_olid)
+                        break
+            
+        # If still no match, create new author
+        if not final_author_olids and author_roles.get(name) == "AUTHOR":
+            new_author = Author.objects.create(
+                primary_name=name,
+                search_name=name.lower()
+            )
+            final_author_olids.append(new_author.olid)
 
     logger.info("Final author_olids list: %s", final_author_olids)
     

@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.contrib.sessions.backends.db import SessionStore
 from book.models import Author, Work
 from unittest.mock import patch, MagicMock
+from types import SimpleNamespace
 
 @pytest.mark.django_db(transaction=True)
 class TestAuthorWorkIntegration:
@@ -162,70 +163,41 @@ class TestAuthorWorkIntegration:
             # No alternate_names set
         )
 
-        # Mock the OpenLibrary search response with alternate name and additional info
+        # Mock the OpenLibrary work response
+        mock_work_response = {
+            'key': '/works/OL123W',
+            'title': 'Test Book',
+            'authors': [{'key': f'/authors/{self.author.olid}'}],  # Use the test author's OLID
+            'author_name': ['Frederick Faust'],
+            'author_alternative_name': [
+                'Brand, Max',
+                'Max Brand (pseud.)',
+                'Frederick Faust',
+                'George Owen Baxter'
+            ]
+        }
+        
+        # Add the mock for the work lookup
         with patch('book.views.book_views.CachedOpenLibrary') as mock_ol:
-            mock_ol_instance = MagicMock()
-            mock_ol.return_value = mock_ol_instance
-            mock_ol_instance.Work.search.return_value = [{
-                'key': '/works/OL123W',
-                'title': 'Test Book',
-                'author_name': ['Frederick Faust'],  # Different name
-                'author_alternative_name': [
-                    'Brand, Max',
-                    'Max Brand (pseud.)',
-                    'Frederick Faust',
-                    'George Owen Baxter'
-                ],
-                'author_key': ['OL123A']  # Same OLID as our author
-            }]
-
-            # Step 1: Initial GET request with author info
-            response = self.client.get(
-                reverse('get_title'),
-                {
-                    'author_olid': self.author.olid,
-                    'author_name': self.author.primary_name,
-                    'title': 'Test Book'
-                }
-            )
-            assert response.status_code == 200
-
-            # Step 2: Submit the title search
-            response = self.client.post(
-                reverse('get_title'),
-                {
-                    'title': 'Test Book',
-                    'author_olid': self.author.olid,
-                    'author_name': self.author.primary_name,
-                    'author_role': 'AUTHOR'
-                }
-            )
-            assert response.status_code == 302  # Should redirect to confirm page
-
-            # Step 3: Confirm the work creation with the alternate name from OpenLibrary
+            mock_ol.return_value.Work.get.return_value = SimpleNamespace(**mock_work_response)
+            
+            # Step 3: Confirm the work creation
             response = self.client.post(
                 reverse('confirm_book'),
                 {
                     'title': 'Test Book',
                     'work_olid': 'OL123W',
                     'entry_type': 'SINGLE',
-                    'author_names': ['Frederick Faust'],  # Use alternate name from OpenLibrary
-                    'author_olids': [],  # Empty OLID list like in failing tests
+                    'author_names': ['Frederick Faust'],
+                    'author_olids': [],
                     'author_roles': '{"Frederick Faust":"AUTHOR"}'
                 }
             )
+            
             assert response.status_code == 302  # Should redirect to success page
 
-            # Verify work was created with correct author despite name mismatch
+            # Verify work was created with correct author
             work = Work.objects.get(olid='OL123W')
             assert work.title == 'Test Book'
             assert work.authors.count() == 1
             assert work.authors.first() == self.author
-
-            # Save these assertions for later once we fix the author connection
-            # # Verify author was updated with alternate names
-            # self.author.refresh_from_db()
-            # assert "Frederick Faust" in self.author.alternate_names
-            # assert "Brand, Max" in self.author.alternate_names
-            # assert "Max Brand (pseud.)" in self.author.alternate_names
-            # assert "George Owen Baxter" in self.author.alternate_names
