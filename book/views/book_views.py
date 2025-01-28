@@ -106,10 +106,37 @@ def _handle_book_confirmation(request):
     
     action = request.POST.get('action', 'Confirm Without Shelving')
     
+    # Get author names and OLIDs from the form
+    author_names = request.POST.get('author_names', '').split(',')
+    author_olids = request.POST.get('author_olids', '').split(',')
+    author_olids = [olid for olid in author_olids if olid]  # Filter empty strings
+
     # Get the work_olid from the POST data
     work_olid = request.POST.get('work_olid')
     if not work_olid:
         return HttpResponseBadRequest('work_olid required')
+
+    # Get OpenLibrary work data for alternate names
+    ol = CachedOpenLibrary()
+    try:
+        work = ol.Work.get(work_olid)
+        if work:
+            logger.info("Found OpenLibrary work: %s", work)
+            # Update authors with alternate names if we find them
+            if hasattr(work, 'author_alternative_name'):
+                for olid in author_olids:
+                    local_author = Author.objects.filter(olid=olid).first()
+                    if local_author:
+                        if not local_author.alternate_names:
+                            local_author.alternate_names = []
+                        for alt_name in work.author_alternative_name:
+                            if alt_name not in local_author.alternate_names:
+                                local_author.alternate_names.append(alt_name)
+                        local_author.save()
+                        logger.info("Updated author %s with alternate names: %s", 
+                                  local_author.primary_name, local_author.alternate_names)
+    except Exception as e:
+        logger.warning("Error getting work details from OpenLibrary: %s", e)
 
     # Check if Work already exists and has copies
     existing_work = Work.objects.filter(olid=work_olid).first()
@@ -137,11 +164,6 @@ def _handle_book_confirmation(request):
     volume_number = request.POST.get('volume_number')
     volume_count = request.POST.get('volume_count')
     
-    # Get author names and OLIDs from the form
-    author_names = request.POST.get('author_names', '').split(',')
-    author_olids = request.POST.get('author_olids', '').split(',')
-    author_olids = [olid for olid in author_olids if olid]  # Filter empty strings
-    
     # If we don't have author OLIDs, try to get them from OpenLibrary work
     if not author_olids:
         ol = CachedOpenLibrary()
@@ -159,6 +181,19 @@ def _handle_book_confirmation(request):
                             if olid and isinstance(olid, str) and olid not in author_olids:
                                 author_olids.append(olid)
                                 logger.info("Added author OLID from work.authors: %s", olid)
+                                
+                                # Update author with alternate names if we find them
+                                local_author = Author.objects.filter(olid=olid).first()
+                                if local_author:
+                                    if hasattr(work, 'author_alternative_name'):
+                                        if not local_author.alternate_names:
+                                            local_author.alternate_names = []
+                                        for alt_name in work.author_alternative_name:
+                                            if alt_name not in local_author.alternate_names:
+                                                local_author.alternate_names.append(alt_name)
+                                        local_author.save()
+                                    logger.info("Updated author %s with alternate names: %s", 
+                                              local_author.primary_name, local_author.alternate_names)
                 if hasattr(work, 'author_key'):
                     if isinstance(work.author_key, list):
                         for key in work.author_key:

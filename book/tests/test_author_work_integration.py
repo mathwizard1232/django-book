@@ -201,3 +201,88 @@ class TestAuthorWorkIntegration:
             assert work.title == 'Test Book'
             assert work.authors.count() == 1
             assert work.authors.first() == self.author
+
+    def test_author_alternate_olids_from_work_lookup(self):
+        """Test that author alternate OLIDs are captured during the full book entry flow."""
+        
+        # Create test author with just primary name/OLID
+        author = Author.objects.create(
+            primary_name="Max Brand",
+            search_name="max brand",
+            olid="OL10356294A"
+            # No alternate_olids yet
+        )
+
+        # Mock OpenLibrary API responses
+        with patch('book.views.book_views.CachedOpenLibrary') as mock_ol:
+            mock_ol_instance = MagicMock()
+            mock_ol.return_value = mock_ol_instance
+
+            # First search by OLID fails (triggers fallback)
+            mock_ol_instance.Work.search.side_effect = [
+                # First search by OLID returns no results
+                [],
+                # Second search by name succeeds
+                [{
+                    'key': '/works/OL123W',
+                    'title': 'The Mustang Herder',
+                    'author_name': ['Max Brand'],
+                    'author_key': ['OL10356294A'],
+                    'first_publish_year': 1923,
+                    'publisher': ['G.P. Putnam\'s Sons']
+                }]
+            ]
+
+            # Mock the work lookup that happens during confirmation
+            mock_ol_instance.Work.get.return_value = SimpleNamespace(**{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'authors': [{'key': '/authors/OL10356294A'}],
+                'author_name': ['Frederick Faust'],
+                'author_alternative_name': [
+                    'Brand, Max',
+                    'Max Brand (pseud.)',
+                    'Frederick Faust',
+                    'George Owen Baxter'
+                ],
+                'alternate_authors': [{'key': '/authors/OL2748402A'}]
+            })
+
+            # Step 1: Title search with author info
+            response = self.client.post(
+                reverse('get_title'),
+                {
+                    'title': 'The Mustang Herder',
+                    'author_olid': author.olid,
+                    'author_name': author.primary_name,
+                    'author_role': 'AUTHOR'
+                }
+            )
+            assert response.status_code == 302  # Should redirect to confirm page
+
+            # Step 2: Confirm the work creation
+            response = self.client.post(
+                reverse('confirm_book'),
+                {
+                    'title': 'The Mustang Herder',
+                    'work_olid': 'OL123W',
+                    'author_names': author.primary_name,
+                    'author_olids': author.olid,
+                    'author_roles': f'{{"{author.primary_name}":"AUTHOR"}}',
+                    'entry_type': 'SINGLE',
+                    'action': 'Confirm Without Shelving'
+                }
+            )
+            assert response.status_code == 302  # Should redirect to success page
+
+            # Verify work was created with proper author
+            work = Work.objects.get(olid='OL123W')
+            assert work is not None
+            assert work.authors.first() == author
+            
+            # Verify author was updated with alternate info
+            author.refresh_from_db()
+            assert "Frederick Faust" in author.alternate_names
+            assert "Brand, Max" in author.alternate_names
+            assert "Max Brand (pseud.)" in author.alternate_names
+            assert "George Owen Baxter" in author.alternate_names

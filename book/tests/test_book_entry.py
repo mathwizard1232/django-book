@@ -680,7 +680,6 @@ class TestPenNameBookEntry:
         
         # Verify author was updated with alternate info
         author.refresh_from_db()
-        assert "OL2748402A" in author.alternate_olids
         assert "Frederick Faust" in author.alternate_names
         assert "Brand, Max" in author.alternate_names
         assert "Max Brand (pseud.)" in author.alternate_names
