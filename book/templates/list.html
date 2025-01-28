@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
-    <h2>Library Contents</h2>
-    
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Library Contents</h3>
+                </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-md-4">
@@ -26,9 +27,9 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row mb-4">
         <div class="col-md-6">
-            <div class="card mb-4">
+            <div class="card">
                 <div class="card-header">
                     <h3 class="card-title mb-0">Authors</h3>
                 </div>
@@ -50,62 +51,71 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row mb-4">
         <div class="col-12">
-            <h3>Works by Location</h3>
-            
-            {% for location, works_by_bookcase in works_by_location.items %}
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h4 class="card-title mb-0">{{ location }}</h4>
-                    </div>
-                    <div class="card-body">
-                        {% for bookcase, works_by_shelf in works_by_bookcase.items %}
-                            <div class="ms-3 mb-3">
-                                <h5>{{ bookcase }}</h5>
-                                {% for shelf, works in works_by_shelf.items %}
-                                    <div class="ms-3 mb-2">
-                                        <h6>Shelf {{ shelf }}</h6>
-                                        <ul class="list-unstyled ms-3">
-                                        {% for work in works %}
-                                            <li>
-                                                {{ work.title }}
-                                                {% if work.volume_number %} (Volume {{ work.volume_number }}){% endif %}
-                                                {% if work.authors.all %}
-                                                    by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                                                {% elif work.editors.all %}
-                                                    edited by {% for editor in work.editors.all %}{{ editor.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                                                {% endif %}
-                                                {% if work.is_multivolume %}
-                                                    {% if work.volume_count %} ({{ work.volume_count }} volumes){% endif %}
-                                                {% else %}
-                                                    {% if work.shelf_copy_count > 1 %} ({{ work.shelf_copy_count }} copies){% endif %}
-                                                {% endif %}
-                                            </li>
-                                        {% endfor %}
-                                        </ul>
-                                    </div>
-                                {% endfor %}
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Works by Location</h3>
+                </div>
+                <div class="card-body">
+                    {% if works_by_location or unassigned_works %}
+                        {% for location, works_by_bookcase in works_by_location.items %}
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h4 class="card-title mb-0">{{ location }}</h4>
+                                </div>
+                                <div class="card-body">
+                                    {% for bookcase, works_by_shelf in works_by_bookcase.items %}
+                                        <div class="ms-3 mb-3">
+                                            <h5>{{ bookcase }}</h5>
+                                            {% for shelf, works in works_by_shelf.items %}
+                                                <div class="ms-3 mb-2">
+                                                    <h6>Shelf {{ shelf }}</h6>
+                                                    <ul class="list-unstyled ms-3">
+                                                    {% for work in works %}
+                                                        <li>
+                                                            {{ work.title }}
+                                                            {% if work.volume_number %} (Volume {{ work.volume_number }}){% endif %}
+                                                            {% if work.authors.all %}
+                                                                by {% for author in work.authors.all %}{{ author.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                            {% elif work.editors.all %}
+                                                                edited by {% for editor in work.editors.all %}{{ editor.primary_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                            {% endif %}
+                                                            {% if work.is_multivolume %}
+                                                                {% if work.volume_count %} ({{ work.volume_count }} volumes){% endif %}
+                                                            {% else %}
+                                                                {% if work.shelf_copy_count > 1 %} ({{ work.shelf_copy_count }} copies){% endif %}
+                                                            {% endif %}
+                                                        </li>
+                                                    {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
                             </div>
                         {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
 
-            {% if unassigned_works %}
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h4 class="card-title mb-0">Unassigned Works</h4>
-                    </div>
-                    <div class="card-body">
-                        <ul class="list-unstyled">
-                        {% for work in unassigned_works %}
-                            <li>{{ work }}</li>
-                        {% endfor %}
-                        </ul>
-                    </div>
+                        {% if unassigned_works %}
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h4 class="card-title mb-0">Unassigned Works</h4>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                    {% for work in unassigned_works %}
+                                        <li>{{ work }}</li>
+                                    {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="mb-0">No works in library</p>
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 </div>
