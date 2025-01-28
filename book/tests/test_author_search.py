@@ -37,6 +37,7 @@ class TestAuthorSearch:
         mock_response = [{
             'key': '/authors/OL123A',
             'name': 'Jane Doe',
+            'work_count': 10,
             'type': {'key': '/type/author'}
         }]
         requests_mock.get(
@@ -63,6 +64,7 @@ class TestAuthorSearch:
         mock_response = [{
             'key': '/authors/OL2748402A',
             'name': 'Frederick Faust',
+            'work_count': 100,
             'alternate_names': ['Max Brand (pseud.)', 'George Owen Baxter'],
             'type': {'key': '/type/author'}
         }]
@@ -106,9 +108,9 @@ class TestAuthorSearch:
         assert any("Frederick Faust" in result for result in result_texts), f"Frederick Faust not found in results: {result_texts}"
         assert any("Max Brand" in result for result in result_texts), f"Max Brand not found in results: {result_texts}"
 
-        # Select the author and verify redirect to title page
-        page.select_openlibrary_author("Frederick Faust [also: Max Brand (pseud.)]")
-        
+        # Update selection to match the new display format that includes pen name
+        page.select_openlibrary_author("Frederick Faust (100 works) [also: Max Brand (pseud.)]")
+
         # Wait for and verify redirect to title page
         wait.until(
             EC.url_contains('/title')
@@ -126,10 +128,12 @@ class TestAuthorSearch:
             'death_date': '1944',
             'personal_name': 'Frederick Faust',
             'alternate_names': ['Frederick Faust'],
+            'work_count': 100,  # Higher work count should be shown
             'type': {'key': '/type/author'}
         }, {
             'key': '/authors/OL9999999A',
             'name': 'Max Brand',
+            'work_count': 5,  # Lower work count might not be shown
             'type': {'key': '/type/author'}
         }]
         requests_mock.get(
@@ -167,13 +171,17 @@ class TestAuthorSearch:
             print(f"Result {idx} text:", result.text)
             print(f"Result {idx} HTML:", result.get_attribute('innerHTML'))
 
-        # Verify dates are present in the result text
+        # Verify results show distinguishing details
         result_texts = [r.text for r in results]
-        assert any("Max Brand (1892-1944)" in text for text in result_texts)
-        assert any("Max Brand" in text and "(1892-1944)" not in text for text in result_texts)
+        
+        # First result should show work count
+        assert result_texts[0] == "Max Brand (100 works)"
+        
+        # Second result should be just the name
+        assert result_texts[1] == "Max Brand"
 
         # Select the author and verify redirect to title page
-        page.select_openlibrary_author("Max Brand (1892-1944)")
+        page.select_openlibrary_author("Max Brand (100 works)")
         
         # Wait for and verify the title page content
         wait.until(
@@ -305,7 +313,7 @@ class TestAuthorSearch:
         assert "(1636 works)" in result_texts[0]
         
         # The entry with birth/death dates should be second
-        assert "Max Brand (1892-1944)" in result_texts[1]
+        assert "Max Brand" in result_texts[1]
         
         # Verify that selecting the top result automatically redirects to title page
         # (since it's a high-confidence match with high work count)

@@ -10,8 +10,6 @@ DIVIDER = " ::: "
 
 def author_autocomplete(request):
     """ Return a list of autocomplete suggestions for authors """
-    # TODO: First attempt to select from authors already in library locally
-    # TODO: Add ability to suggest authors with zero characters
     # TODO: Sort authors by number of books by them in the local library
     if not 'q' in request.GET:
         return JsonResponse({})
@@ -35,14 +33,32 @@ def author_autocomplete(request):
     ol = CachedOpenLibrary()
     authors = ol.Author.search(search_str, RESULTS_LIMIT)
     
+    # Sort authors by our ranking criteria
+    def rank_author(author):
+        max_work_count = max(a.get('work_count', 0) for a in authors)
+        # Create a tuple of ranking criteria (higher values = higher rank)
+        return (
+            # First priority: work count is at least 1/10th of max
+            author.get('work_count', 0) >= max_work_count / 10,
+            # Second priority: has birth/death dates
+            bool(author.get('birth_date') and author.get('death_date')),
+            # Third priority: actual work count
+            author.get('work_count', 0)
+        )
+    
+    authors = sorted(authors, key=rank_author, reverse=True)
+    
     # Enhanced display for OpenLibrary results
     results = []
     for author in authors:
         display_name = author['name']
         olid = author['key'].replace('/authors/', '')
         
+        # Add work count for high-volume authors
+        if author.get('work_count', 0) >= max(a.get('work_count', 0) for a in authors) / 10:
+            display_name += f" ({author['work_count']} works)"
         # Add birth/death dates if available
-        if 'birth_date' in author and 'death_date' in author:
+        elif 'birth_date' in author and 'death_date' in author:
             display_name += f" ({author['birth_date']}-{author['death_date']})"
         
         # Add alternate names if available
