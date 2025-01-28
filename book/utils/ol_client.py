@@ -184,16 +184,7 @@ class CachedOpenLibrary(OpenLibrary):
                 logger.debug(f"Making cached author get request to {url}")
                 try:
                     response = ol_instance._make_request(url)
-                    data = response.json()
-                    # Create an Author object from the response data
-                    return cls(
-                        name=data.get('name', ''),
-                        olid=olid,
-                        birth_date=data.get('birth_date'),
-                        death_date=data.get('death_date'),
-                        personal_name=data.get('personal_name'),
-                        alternate_names=data.get('alternate_names', [])
-                    )
+                    return response.json()  # Just return the raw JSON data
                 except Exception as e:
                     logger.error(f"Author get failed: {e}")
                     raise

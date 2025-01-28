@@ -8,6 +8,7 @@ from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
 import json
 import re
+from ..utils.author_utils import format_primary_name
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +27,48 @@ def get_title(request):
     if request.method == 'GET':
         if 'author_olid' in request.GET:
             a_olid = request.GET['author_olid']
+            author_name = request.GET['author_name']
+            
+            # Check if we need to create the Author
+            if not Author.objects.filter(olid=a_olid).exists():
+                # Extract work count if present
+                work_count = None
+                if '(' in author_name and 'works)' in author_name:
+                    base_name = author_name.split('(')[0].strip()
+                    work_count = int(author_name.split('(')[1].split(' works)')[0])
+                
+                # If this is a high-quality match (significant work count), create Author
+                if work_count and work_count >= 100:  # We can adjust this threshold
+                    # Extract base name without work count
+                    search_name = author_name.split('(')[0].strip()
+                    
+                    # Fetch full author details from OpenLibrary
+                    ol = CachedOpenLibrary()
+                    author_details = ol.Author.get(a_olid)
+                    
+                    # Get OpenLibrary name (prefer personal_name if available)
+                    ol_name = author_details.get('personal_name') or author_details.get('name')
+                    
+                    # Create author with complete information
+                    Author.objects.create(
+                        olid=a_olid,
+                        primary_name=format_primary_name(search_name, ol_name),
+                        search_name=search_name.lower(),
+                        birth_date=author_details.get('birth_date'),
+                        death_date=author_details.get('death_date'),
+                        alternate_names=author_details.get('alternate_names', [])
+                    )
+            
             form = TitleGivenAuthorForm({
                 'author_olid': a_olid, 
-                'author_name': request.GET['author_name'],
+                'author_name': author_name,
                 'author_role': request.GET.get('author_role', 'AUTHOR')
             })
             # Add logging for form processing after form is created
             logger.info("=== Form Processing ===")
             logger.info("Form initial data: %s", {
                 'author_olid': a_olid,
-                'author_name': request.GET['author_name'],
+                'author_name': author_name,
                 'author_role': request.GET.get('author_role', 'AUTHOR')
             })
             logger.info("Form is valid: %s", form.is_valid())
