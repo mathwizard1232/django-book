@@ -6,7 +6,7 @@ import logging
 import urllib.parse
 import json
 
-from ..models import Work, Author, Edition, Copy, Shelf
+from ..models import Work, Author, Edition, Copy, Shelf, Location
 from ..utils.ol_client import CachedOpenLibrary
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class WorkController:
         self._log_request_context()
         
         # Early returns
-        if 'collection_first_work' in self.request.session:
+        if self.request.POST.get('collection_first_work'):
             return self._handle_collection_confirmation()
             
         if not self.request.POST.get('work_olid'):
@@ -52,7 +52,6 @@ class WorkController:
     def _log_request_context(self) -> None:
         """Log detailed request information"""
         logger.info("=== Book Confirmation Request Details ===")
-        logger.info("Session data: %s", dict(self.request.session))
         logger.info("POST data: %s", dict(self.request.POST))
         logger.info("GET data: %s", dict(self.request.GET))
 
@@ -99,10 +98,9 @@ class WorkController:
             logger.warning("Could not parse author_roles JSON")
             author_roles = {}
             
-        # Check for selected author from form or session
+        # Check for selected author from form only
         selected_author = None
-        selected_olid = (self.request.POST.get('selected_author_olid') or 
-                        self.request.session.get('selected_author_olid'))
+        selected_olid = self.request.POST.get('selected_author_olid')
         
         if selected_olid:
             selected_author = Author.objects.filter(olid=selected_olid).first()
@@ -235,8 +233,12 @@ class WorkController:
         work = Work.objects.filter(olid=work_olid).first()
         if work:
             # Update existing work's authors/editors
-            work.authors.set(authors)
-            work.editors.set(editors)
+            work.authors.clear()
+            work.editors.clear()
+            for author in authors:
+                work.authors.add(author)
+            for editor in editors:
+                work.editors.add(editor)
             return work
             
         # Handle multivolume works
@@ -257,14 +259,18 @@ class WorkController:
             )
             
         # Create single volume work
-        return Work.objects.create(
+        work = Work.objects.create(
             olid=work_olid,
             title=clean_title,
             search_name=search_name,
-            type='NOVEL',
-            authors=authors,
-            editors=editors
+            type='NOVEL'
         )
+        # Add authors and editors after creation
+        for author in authors:
+            work.authors.add(author)
+        for editor in editors:
+            work.editors.add(editor)
+        return work
         
     def _create_multivolume_work(self, clean_title: str, search_name: str,
                                 authors: List[Author], editors: List[Author],
@@ -359,3 +365,104 @@ class WorkController:
             message = f"new_work&title={urllib.parse.quote(display_title)}"
             
         return message 
+
+    def _handle_collection_confirmation(self) -> HttpResponse:
+        """Handle the confirmation of a second work to create a collection"""
+        # Get both works' details from POST data
+        first_work = {
+            'title': self.request.POST.get('first_work_title'),
+            'work_olid': self.request.POST.get('first_work_olid'),
+            'author_names': self.request.POST.get('first_work_author_names'),
+            'author_olids': self.request.POST.get('first_work_author_olids'),
+            'publisher': self.request.POST.get('first_work_publisher'),
+        }
+        
+        second_work = {
+            'title': self.request.POST.get('second_work_title'),
+            'work_olid': self.request.POST.get('second_work_olid'),
+            'author_names': self.request.POST.get('second_work_author_names'),
+            'author_olids': self.request.POST.get('second_work_author_olids'),
+            'publisher': self.request.POST.get('publisher'),
+        }
+        
+        # Create the collection work
+        collection_title = self.request.POST.get('title')
+        collection = Work.objects.create(
+            title=collection_title,
+            search_name=collection_title,
+            type='COLLECTION'
+        )
+        
+        # Create and link the component works
+        works_to_create = [first_work, second_work]
+        contained_works = []
+        all_authors = set()
+        
+        for work_data in works_to_create:
+            logger.info("Processing work data: %s", work_data)
+            work = Work.objects.filter(olid=work_data['work_olid']).first()
+            if not work:
+                work = Work.objects.create(
+                    olid=work_data['work_olid'],
+                    title=work_data['title'],
+                    search_name=work_data['title'],
+                    type='NOVEL'
+                )
+                
+                # Add authors
+                if work_data['author_olids']:
+                    for olid, name in zip(work_data['author_olids'].split(','), 
+                                        work_data['author_names'].split(',')):
+                        if olid:
+                            author = Author.objects.get_or_fetch(olid)
+                            if author:
+                                work.authors.add(author)
+                                all_authors.add(author)
+            else:
+                all_authors.update(work.authors.all())
+            
+            contained_works.append(work)
+            
+        # Add all collected authors to the collection
+        for author in all_authors:
+            collection.authors.add(author)
+        
+        # Link both works to the collection
+        for work in contained_works:
+            collection.component_works.add(work)
+            
+        # Create edition and copy
+        edition = Edition.objects.create(
+            work=collection,
+            publisher="Various" if first_work['publisher'] != second_work['publisher'] else first_work['publisher'],
+            format="PAPERBACK"
+        )
+        
+        # Handle shelving if requested
+        copy_data = {
+            'edition': edition,
+            'condition': "GOOD"
+        }
+        
+        action = self.request.POST.get('action', 'Confirm Without Shelving')
+        if action == 'Confirm and Shelve':
+            shelf_id = self.request.POST.get('shelf')
+            if shelf_id:
+                shelf = Shelf.objects.get(id=shelf_id)
+                copy_data.update({
+                    'shelf': shelf,
+                    'location': shelf.bookcase.get_location(),
+                    'room': shelf.bookcase.room,
+                    'bookcase': shelf.bookcase
+                })
+        
+        Copy.objects.create(**copy_data)
+        
+        # Create appropriate message
+        if action == 'Confirm and Shelve' and shelf_id:
+            location_path = f"{shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+            message = f"new_copy_shelved&title={urllib.parse.quote(collection_title)}&location={urllib.parse.quote(location_path)}"
+        else:
+            message = f"new_work&title={urllib.parse.quote(collection_title)}"
+            
+        return HttpResponseRedirect(f'/author/?message={message}') 

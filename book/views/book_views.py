@@ -2,7 +2,7 @@ import logging
 import urllib.parse
 from django.http import HttpResponseRedirect, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
-from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm
+from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm, AuthorForm
 from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
@@ -920,21 +920,25 @@ def _handle_title_only_search(request, title):
         return render(request, 'title-only.html', context)
 
 def start_collection(request):
-    """Convert a single Work confirmation into a Collection creation flow"""
+    """Begin collection creation flow by rendering author page with first work context"""
     if request.method != 'POST':
         return HttpResponseBadRequest('POST required')
         
-    # Store the first work's details in session, using the potentially modified title
-    request.session['collection_first_work'] = {
-        'title': request.POST.get('first_work_title', request.POST.get('title')),  # Try first_work_title first
-        'work_olid': request.POST.get('work_olid'),
-        'author_names': request.POST.get('author_names'),
-        'author_olids': request.POST.get('author_olids'),
-        'publisher': request.POST.get('publisher'),
+    # Create context with first work's details and form
+    context = {
+        'collection_first_work': {
+            'title': request.POST.get('first_work_title', request.POST.get('title')),
+            'work_olid': request.POST.get('work_olid'),
+            'author_names': request.POST.get('author_names'),
+            'author_olids': request.POST.get('author_olids'),
+            'publisher': request.POST.get('publisher'),
+        },
+        'form': AuthorForm(),  # Add the form to context
+        'author_role': 'AUTHOR'  # Ensure author_role is set
     }
     
-    # Redirect to author selection for second work
-    return HttpResponseRedirect('/author/')
+    # Render author page with collection context
+    return render(request, 'author.html', context)
 
 def cancel_collection(request):
     """Cancel collection creation and clear session data"""

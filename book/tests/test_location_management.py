@@ -56,7 +56,7 @@ class TestLocationManagement:
             olid="OL123A"
         )
         
-        # Mock OpenLibrary API response
+        # Mock OpenLibrary API responses
         mock_work_response = {
             'docs': [{
                 'key': '/works/OL123W',
@@ -66,9 +66,22 @@ class TestLocationManagement:
                 'first_publish_year': 2023
             }]
         }
+        
+        # Mock the search endpoint
         requests_mock.get(
             'https://openlibrary.org/search.json?title=Test+Book&author=OL123A',
             json=mock_work_response
+        )
+        
+        # Mock the work details endpoint
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'}
+            }
         )
 
         # Add book and get to shelving page
@@ -162,6 +175,26 @@ class TestLocationManagement:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL456A&title=Peril+of+the+Starmen&limit=2',
             json=peril_response
+        )
+        
+        # Add work details mocks
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'The Flame of Iridar',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'}
+            }
+        )
+        requests_mock.get(
+            'https://openlibrary.org/works/OL456W.json',
+            json={
+                'key': '/works/OL456W',
+                'title': 'Peril of the Starmen',
+                'authors': [{'key': '/authors/OL456A'}],
+                'type': {'key': '/type/work'}
+            }
         )
 
         # Start with first work's author

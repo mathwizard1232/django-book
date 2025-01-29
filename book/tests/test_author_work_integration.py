@@ -214,7 +214,7 @@ class TestAuthorWorkIntegration:
         )
 
         # Mock OpenLibrary API responses
-        with patch('book.views.book_views.CachedOpenLibrary') as mock_ol:
+        with patch('book.controllers.work_controller.CachedOpenLibrary') as mock_ol:
             mock_ol_instance = MagicMock()
             mock_ol.return_value = mock_ol_instance
 

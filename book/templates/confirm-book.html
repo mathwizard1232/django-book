@@ -139,12 +139,12 @@
                     <!-- Add collection button - separate form -->
                     <form method="post" action="{% url 'start_collection' %}" class="mt-2">
                         {% csrf_token %}
-                        <!-- Copy over the essential fields -->
-                        <input type="hidden" name="title" value="{{ form.title.value }}">
-                        <input type="hidden" name="work_olid" value="{{ form.work_olid.value }}">
-                        <input type="hidden" name="author_names" value="{{ form.author_names.value }}">
-                        <input type="hidden" name="author_olids" value="{{ form.author_olids.value }}">
-                        <input type="hidden" name="author_roles" value="{{ form.author_roles.value }}">
+                        <!-- Pass all work data through form instead of session -->
+                        <input type="hidden" name="first_work_title" value="{{ form.title.value }}">
+                        <input type="hidden" name="first_work_olid" value="{{ form.work_olid.value }}">
+                        <input type="hidden" name="first_work_author_names" value="{{ form.author_names.value }}">
+                        <input type="hidden" name="first_work_author_olids" value="{{ form.author_olids.value }}">
+                        <input type="hidden" name="first_work_author_roles" value="{{ form.author_roles.value }}">
                         <button type="submit" class="btn btn-outline-primary w-100">
                             Make this Work a Collection and add another Work
                         </button>

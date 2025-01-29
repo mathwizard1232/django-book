@@ -17,9 +17,9 @@
 {% endif %}
 
 <div class="container bg-light p-4 rounded shadow-sm">
-    {% if request.session.collection_first_work %}
+    {% if collection_first_work %}
     <div class="alert alert-info mb-4">
-        <p class="mb-0">Adding work to collection with: <strong>{{ request.session.collection_first_work.title }}</strong></p>
+        <p class="mb-0">Adding work to collection with: <strong>{{ collection_first_work.title }}</strong></p>
     </div>
     {% endif %}
 
@@ -48,14 +48,18 @@
                 
                 <form action="/author/" method="post" class="mt-3">
                     {% csrf_token %}
-                    {% if request.session.collection_first_work %}
-                        <input type="hidden" name="is_collection" value="true">
+                    {% if collection_first_work %}
+                        <input type="hidden" name="first_work_title" value="{{ collection_first_work.title }}">
+                        <input type="hidden" name="first_work_olid" value="{{ collection_first_work.work_olid }}">
+                        <input type="hidden" name="first_work_author_names" value="{{ collection_first_work.author_names }}">
+                        <input type="hidden" name="first_work_author_olids" value="{{ collection_first_work.author_olids }}">
+                        <input type="hidden" name="first_work_publisher" value="{{ collection_first_work.publisher }}">
                     {% endif %}
                     {{ form }}
                     <input type="hidden" name="author_role" id="authorRole" value="{{ author_role }}">
                     <div class="mt-3">
                         <button type="submit" class="btn btn-success">Continue</button>
-                        {% if request.session.collection_first_work %}
+                        {% if collection_first_work %}
                             <a href="{% url 'cancel_collection' %}" class="btn btn-outline-secondary ms-2">Cancel collection</a>
                         {% endif %}
                     </div>
