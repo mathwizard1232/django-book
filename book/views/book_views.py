@@ -106,6 +106,30 @@ def confirm_book(request):
     else:
         return _handle_book_search(request)
 
+def _format_pen_name(real_name, pen_name, alternate_names):
+    """Format author name to include pen name if appropriate.
+    
+    Args:
+        real_name (str): The author's real name (e.g., "Frederick Schiller Faust")
+        pen_name (str): The author's pen name (e.g., "Max Brand")
+        alternate_names (list): List of alternate names to check against
+        
+    Returns:
+        str: Formatted name with pen name in quotes if appropriate, or original name
+    """
+    # Split names into components and just use first and last
+    name_parts = real_name.split()
+    real_first = name_parts[0]
+    real_last = name_parts[-1]
+    
+    # Check if components of real name appear in alternate names
+    for alt_name in alternate_names:
+        if real_first.lower() in alt_name.lower() and real_last.lower() in alt_name.lower():
+            # We found the real name in alternate names, format with pen name
+            return f"{real_first} '{pen_name}' {real_last}"
+    
+    return real_name
+
 def _handle_book_confirmation(request):
     """Process the confirmed book selection and create local records"""
     # Add debug logging for the full request context
@@ -143,6 +167,55 @@ def _handle_book_confirmation(request):
     author_names = request.POST.get('author_names', '').split(',')
     author_olids = request.POST.get('author_olids', '').split(',')
     author_olids = [olid for olid in author_olids if olid]  # Filter empty strings
+
+    # Parse author roles from POST data
+    try:
+        author_roles = json.loads(request.POST.get('author_roles', '{}'))
+    except json.JSONDecodeError:
+        author_roles = {}
+
+    # First check for selected author from form or session
+    selected_author = None
+    selected_olid = request.POST.get('selected_author_olid') or request.session.get('selected_author_olid')
+    if selected_olid:
+        selected_author = Author.objects.filter(olid=selected_olid).first()
+        logger.info("Found selected author: %s", selected_author)
+
+    # Get the work details from OpenLibrary
+    work_data = None
+    if request.POST.get('work_olid'):
+        ol = CachedOpenLibrary()
+        try:
+            work_data = ol.Work.get(request.POST.get('work_olid'))
+            logger.info("Found OpenLibrary work: %s", work_data)
+        except Exception as e:
+            logger.warning(f"Error getting work details from OpenLibrary: {e}")
+
+    # If we don't have author OLIDs but have work data, try to match authors
+    if not author_olids and work_data:
+        # First try to match by OLID from work authors
+        if hasattr(work_data, 'authors'):
+            for work_author in work_data.authors:
+                if hasattr(work_author, 'key'):
+                    author_olid = str(work_author.key).split('/')[-1]
+                    if author_olid:
+                        # Check if this OLID matches any local author
+                        local_author = Author.objects.filter(olid=author_olid).first()
+                        if local_author:
+                            selected_author = local_author
+                            logger.info("Found matching local author by OLID: %s", local_author)
+                            author_olids.append(author_olid)
+
+        # If still no match and we have alternate names, try matching those
+        if not selected_author and hasattr(work_data, 'author_alternative_name'):
+            alt_names = work_data.author_alternative_name
+            for local_author in Author.objects.all():
+                if local_author.search_name in [name.lower() for name in alt_names]:
+                    selected_author = local_author
+                    logger.info("Found matching local author by alternate name: %s", local_author)
+                    if local_author.olid:
+                        author_olids.append(local_author.olid)
+                    break
 
     # Get the work_olid from the POST data
     work_olid = request.POST.get('work_olid')
@@ -197,66 +270,85 @@ def _handle_book_confirmation(request):
     volume_number = request.POST.get('volume_number')
     volume_count = request.POST.get('volume_count')
     
-    # If we don't have author OLIDs, try to get them from OpenLibrary work
-    if not author_olids:
-        ol = CachedOpenLibrary()
-        try:
-            work = ol.Work.get(work_olid)
-            if work:
-                logger.info("Found OpenLibrary work: %s", work)
-                # Check both authors array and author_key field
-                if hasattr(work, 'authors'):
-                    for author in work.authors:
-                        if isinstance(author, dict) and 'key' in author:
-                            # Extract OLID from key (e.g., /authors/OL123A -> OL123A)
-                            key = author['key']
-                            olid = key.split('/')[-1]
-                            if olid and isinstance(olid, str) and olid not in author_olids:
-                                author_olids.append(olid)
-                                logger.info("Added author OLID from work.authors: %s", olid)
-                                
-                                # Update author with alternate names if we find them
-                                local_author = Author.objects.filter(olid=olid).first()
-                                if local_author:
-                                    if hasattr(work, 'author_alternative_name'):
-                                        if not local_author.alternate_names:
-                                            local_author.alternate_names = []
-                                        for alt_name in work.author_alternative_name:
-                                            if alt_name not in local_author.alternate_names:
-                                                local_author.alternate_names.append(alt_name)
-                                        local_author.save()
-                                    logger.info("Updated author %s with alternate names: %s", 
-                                              local_author.primary_name, local_author.alternate_names)
-                if hasattr(work, 'author_key'):
-                    if isinstance(work.author_key, list):
-                        for key in work.author_key:
-                            if key and key not in author_olids:
-                                author_olids.append(key)
-                                logger.info("Added author OLID from work.author_key: %s", key)
-                    else:
-                        if work.author_key and work.author_key not in author_olids:
-                            author_olids.append(work.author_key)
-                            logger.info("Added author OLID from work.author_key: %s", work.author_key)
-        except Exception as e:
-            logger.warning("Error getting work details from OpenLibrary: %s", e)
-    
-    # Parse author roles from JSON
-    author_roles = json.loads(request.POST.get('author_roles', '{}'))
-    
-    logger.info("Author OLIDs: %s", author_olids)
-    logger.info("Author Names: %s", author_names)
-    logger.info("Author Roles mapping: %s", author_roles)
-    
-    # First try to match by OLID
+    # Process author OLIDs
     final_author_olids = []
     for olid in author_olids:
-        author = Author.objects.filter(olid=olid).first()
+        logger.info("Processing OLID: %s", olid)
+        # If we have a selected author, use that instead of searching
+        if selected_author:
+            author = selected_author
+            # Get the OpenLibrary details to update the author
+            ol = CachedOpenLibrary()
+            try:
+                author_details = ol.Author.get(olid)
+                if author_details:
+                    alternate_names = author_details.get('alternate_names', [])
+                    real_name = author_details.get('personal_name') or author_details.get('name')
+                    if real_name:
+                        formatted_name = _format_pen_name(
+                            real_name=real_name,
+                            pen_name=author.search_name.title(),
+                            alternate_names=alternate_names
+                        )
+                        author.primary_name = formatted_name
+                        author.alternate_names = alternate_names
+                        author.save()
+            except Exception as e:
+                logger.warning(f"Error getting author details from OpenLibrary: {e}")
+        else:
+            # Original author matching logic...
+            author = Author.objects.filter(olid=olid).first()
+            if not author:
+                logger.info("No direct OLID match, trying name matching")
+                # Try to match by name if we have a local author
+                local_authors = Author.objects.all()
+                for local_author in local_authors:
+                    logger.info("Checking local author: %s (search_name: %s)", 
+                              local_author.primary_name, local_author.search_name)
+                    # Get the OpenLibrary details for this author
+                    ol = CachedOpenLibrary()
+                    try:
+                        author_details = ol.Author.get(olid)
+                        if author_details:
+                            alternate_names = author_details.get('alternate_names', [])
+                            logger.info("Found OL author details: %s", author_details)
+                            logger.info("Alternate names: %s", alternate_names)
+                            # Check if our local author's name appears in alternate names
+                            local_name = local_author.search_name.lower()
+                            alt_names_lower = [name.lower() for name in alternate_names]
+                            logger.info("Checking if %s appears in %s", local_name, alt_names_lower)
+                            if local_name in alt_names_lower or any(local_name in alt.lower() for alt in alternate_names):
+                                logger.info("Found name match!")
+                                # This is the same author with a different OLID
+                                real_name = author_details.get('personal_name') or author_details.get('name')
+                                if real_name:
+                                    logger.info("Formatting name with real_name: %s, pen_name: %s", 
+                                              real_name, local_author.search_name.title())
+                                    # Format name with pen name
+                                    formatted_name = _format_pen_name(
+                                        real_name=real_name,
+                                        pen_name=local_author.search_name.title(),
+                                        alternate_names=alternate_names
+                                    )
+                                    logger.info("Formatted name: %s", formatted_name)
+                                    # Update author with new OLID and name format
+                                    local_author.olid = olid
+                                    local_author.primary_name = formatted_name
+                                    local_author.alternate_names = alternate_names
+                                    local_author.save()
+                                    author = local_author
+                                    break
+                    except Exception as e:
+                        logger.warning(f"Error getting author details from OpenLibrary: {e}")
+                        continue
+
         if author:
             final_author_olids.append(olid)
         else:
-            # If we have an OLID but no matching author, create one
+            # If still no match, create new author
             for name in author_names:
                 if author_roles.get(name) == "AUTHOR":
+                    logger.info("Creating new author with name: %s", name)
                     author = Author.objects.create(
                         primary_name=name,
                         search_name=name.lower(),
