@@ -117,6 +117,15 @@ class WorkController:
             )
             
             if author:
+                # Update alternate names from work data if available
+                if hasattr(work_data, 'author_alternative_name'):
+                    if not author.alternate_names:
+                        author.alternate_names = []
+                    for alt_name in work_data.author_alternative_name:
+                        if alt_name not in author.alternate_names:
+                            author.alternate_names.append(alt_name)
+                    author.save()
+                
                 if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
                     authors.append(author)
                 else:
