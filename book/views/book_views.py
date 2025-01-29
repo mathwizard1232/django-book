@@ -6,6 +6,7 @@ from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm
 from ..models import Author, Work, Edition, Copy, Location, Shelf
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER
+from ..controllers.work_controller import WorkController
 import json
 import re
 from ..utils.author_utils import format_primary_name
@@ -102,7 +103,7 @@ def get_title(request):
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
     if request.method == 'POST':
-        return _handle_book_confirmation(request)
+        return WorkController(request).handle_book_confirmation()  # Try new controller
     else:
         return _handle_book_search(request)
 
