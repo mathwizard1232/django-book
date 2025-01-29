@@ -14,7 +14,7 @@ def driver():
     
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    driver.implicitly_wait(10)  # seconds
+    driver.implicitly_wait(0.5)  # Reduce from 10 seconds to 0.5 seconds
     yield driver
     driver.quit()
 

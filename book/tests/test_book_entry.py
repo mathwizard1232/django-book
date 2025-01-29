@@ -21,7 +21,28 @@ class TestBasicBookEntry:
             olid="OL123A"
         )
 
-        # Mock OpenLibrary API responses
+        # Mock OpenLibrary author autocomplete API
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Test&limit=5',
+            json=[{
+                'name': 'Test Author',
+                'key': '/authors/OL123A'
+            }]
+        )
+
+        # Mock the full author details API
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL123A.json',
+            json={
+                'key': '/authors/OL123A',
+                'name': 'Test Author',
+                'personal_name': 'Test Author',
+                'birth_date': '1900',
+                'death_date': '1980'
+            }
+        )
+
+        # Mock work search API
         mock_work_response = {
             'docs': [{
                 'key': '/works/OL123W',
@@ -61,6 +82,18 @@ class TestBasicBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL123A&title=Original+Test+Book&limit=2',
             json=mock_work_response
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
         )
 
         # Start author search and selection
@@ -116,6 +149,18 @@ class TestBasicBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL123A&title=Modified+Test+Book&limit=2',
             json=mock_work_response
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
         )
 
         # Start author search and selection
@@ -235,6 +280,18 @@ class TestCollectionBookEntry:
             json=peril_response
         )
 
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'The Flame of Iridar',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '1967'
+            }
+        )
+
         # Start with first work's author
         author_page = AuthorPage(browser)
         author_page.navigate()
@@ -339,6 +396,18 @@ class TestCollectionBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL456A&title=Peril+of+the+Starmen&limit=2',
             json=peril_response
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'The Flame of Iridar',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '1967'
+            }
         )
 
         # Start with first work's author and title
@@ -459,6 +528,18 @@ class TestPenNameBookEntry:
             json=mock_work_response
         )
 
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
+        )
+
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()
@@ -546,6 +627,18 @@ class TestPenNameBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=Brand&title=The+Mustang+Herder&limit=2',
             json=mock_work_response
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
         )
 
         # Start author search and selection
@@ -660,6 +753,18 @@ class TestPenNameBookEntry:
             json=mock_work_response
         )
 
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
+        )
+
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()
@@ -738,6 +843,18 @@ class TestPenNameBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
             json=mock_work_response
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
         )
 
         # Start author search and selection
@@ -841,6 +958,18 @@ class TestPenNameBookEntry:
         requests_mock.get(
             'https://openlibrary.org/authors/OL2748402A.json',
             json=mock_author_details
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
         )
 
         # Start author search

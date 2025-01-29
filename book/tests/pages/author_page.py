@@ -1,32 +1,34 @@
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from .base_page import BasePage
 
 class AuthorPage(BasePage):
-    def __init__(self, driver):
-        super().__init__(driver)
-        self.url = '/author/'
-        self.search_input = (By.CLASS_NAME, 'basicAutoComplete')
+    url = '/author/'
+    
+    def __init__(self, browser):
+        super().__init__(browser)  # Call parent constructor
+        self.search_input = (By.ID, 'id_author_name')
+        self.search_button = (By.CSS_SELECTOR, 'button[type="submit"]')
+        self.local_author_link = (By.CLASS_NAME, 'local-author')
+        self.openlibrary_author_link = (By.CLASS_NAME, 'openlibrary-author')
+        self.confirm_button = (By.ID, 'confirm-author')
         self.search_results = (By.CLASS_NAME, 'dropdown-item')
 
     def navigate(self):
         """Navigate to the author search page."""
-        self.driver.get(self.driver.current_url.split('#')[0] + self.url)
+        self.browser.get(self.browser.current_url.split('#')[0] + self.url)
 
-    def search_author(self, author_name):
-        """Search for an author."""
-        # Wait for autocomplete to be initialized
-        self.wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'basicAutoComplete'))
-        )
-        
+    def search_author(self, name):
+        """Enter an author name in the search box (does not submit)."""
+        print(f"\nEntering author search text: {name}")
         search_box = self.find_element(*self.search_input)
         search_box.clear()
-        search_box.send_keys(author_name)
+        search_box.send_keys(name)
 
     def get_search_results(self):
         """Get list of search results."""
-        results = self.driver.find_elements(*self.search_results)
+        results = self.browser.find_elements(*self.search_results)
         return [result.text for result in results]
 
     def select_local_author(self, author_name):
@@ -39,15 +41,15 @@ class AuthorPage(BasePage):
         )
         
         # Find and click the result
-        results = self.driver.find_elements(*self.search_results)
+        results = self.browser.find_elements(*self.search_results)
         print(f"Found {len(results)} dropdown items")
         print(f"Dropdown texts: {[r.text for r in results]}")
         
         for result in results:
             if author_name in result.text:
                 print(f"Found matching result: {result.text}")
-                print("Current URL before click:", self.driver.current_url)
-                self.driver.execute_script("arguments[0].click();", result)
+                print("Current URL before click:", self.browser.current_url)
+                self.browser.execute_script("arguments[0].click();", result)
                 break
         
         # Wait for redirect to title page
@@ -56,10 +58,10 @@ class AuthorPage(BasePage):
             self.wait.until(
                 EC.url_contains('/title')
             )
-            print("Successfully redirected to:", self.driver.current_url)
+            print("Successfully redirected to:", self.browser.current_url)
         except Exception as e:
-            print("Failed to redirect. Current URL:", self.driver.current_url)
-            print("Page source:", self.driver.page_source[:500])
+            print("Failed to redirect. Current URL:", self.browser.current_url)
+            print("Page source:", self.browser.page_source[:500])
             raise
 
     def confirm_new_author(self):
@@ -80,13 +82,13 @@ class AuthorPage(BasePage):
             EC.presence_of_all_elements_located(self.search_results)
         )
         
-        results = self.driver.find_elements(*self.search_results)
+        results = self.browser.find_elements(*self.search_results)
         found = False
         for result in results:
             if result.text == display_name:
                 print(f"Found matching result: {result.text}")
-                print("Current URL before click:", self.driver.current_url)
-                self.driver.execute_script("arguments[0].click();", result)
+                print("Current URL before click:", self.browser.current_url)
+                self.browser.execute_script("arguments[0].click();", result)
                 found = True
                 break
         
