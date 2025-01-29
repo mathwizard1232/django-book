@@ -761,3 +761,117 @@ class TestPenNameBookEntry:
 
         # Verify the display shows the formatted name
         assert author.display_name() == "Frederick 'Max Brand' Faust (1892-1944)"
+
+    def test_pen_name_confirmation_display(self, browser, requests_mock):
+        """Test that pen name is properly formatted on confirmation page and saved correctly."""
+        
+        # Mock initial OpenLibrary author search response - note this is OL10352592A
+        mock_author_search = [{
+            'key': '/authors/OL10352592A',  # Different OLID from what we'll get later
+            'name': 'Max Brand',
+            'work_count': 1636,
+            'works': ["Gunman's Reckoning"],
+            'subjects': ['Fiction, westerns']
+        }]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_author_search
+        )
+        # Also mock the confirmation page search (limit=2)
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=2',
+            json=mock_author_search
+        )
+
+        # Mock the initial author details
+        mock_initial_author = {
+            'key': '/authors/OL10352592A',
+            'name': 'Max Brand',
+            'work_count': 1636
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10352592A.json',
+            json=mock_initial_author
+        )
+
+        # Mock the work search response - note this returns a different author OLID
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL14848834W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Frederick Faust'],  # Different name
+                'author_key': ['OL2748402A'],       # Different OLID
+                'first_publish_year': 1994
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
+        )
+
+        # Mock the work's author details that will be fetched during confirmation
+        mock_author_details = {
+            'key': '/authors/OL2748402A',
+            'name': 'Frederick Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': [
+                'Brand, Max',
+                'George Owen Baxter',
+                'Frederick Frost',
+                'David Manning'
+            ],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944',
+            'bio': 'American author best known by his pen name Max Brand'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL2748402A.json',
+            json=mock_author_details
+        )
+
+        # Start author search
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+
+        # Instead of selecting from dropdown, submit the form to go to confirmation page
+        search_form = browser.find_element(By.TAG_NAME, 'form')
+        search_form.submit()
+
+        # On confirmation page, verify the author details are displayed
+        content = browser.page_source
+        assert "Max Brand" in content
+        assert "(1636 works)" in content
+        
+        # Confirm the author
+        author_page.confirm_new_author()
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+
+        # Verify the confirmation page shows the formatted name
+        content = browser.page_source
+        assert "Frederick 'Max Brand' Faust" in content
+        assert "The Mustang Herder" in content
+        
+        # Complete the entry
+        book_page.confirm_title()
+
+        # Verify author was updated with correct information
+        author = Author.objects.get(olid="OL2748402A")  # Should now have the work's author OLID
+        assert author.primary_name == "Frederick 'Max Brand' Faust"
+        assert author.search_name == "max brand"  # Search name should remain the pen name
+        assert "Brand, Max" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names
+        assert author.birth_date == "29 May 1892"
+        assert author.death_date == "12 May 1944"
+
+        # Verify work was created and properly associated
+        work = Work.objects.get(title="The Mustang Herder")
+        assert work.authors.first() == author
+
+        # Verify the original OLID author no longer exists
+        with pytest.raises(Author.DoesNotExist):
+            Author.objects.get(olid="OL10352592A")
