@@ -4,6 +4,9 @@ from book.models import Author, Work
 from book.views.book_views import _handle_book_confirmation
 from django.http import HttpRequest, QueryDict
 from django.contrib.sessions.backends.db import SessionStore
+from unittest.mock import patch
+import requests_mock
+import requests
 
 class TestWorkCreation(TestCase):
     def setUp(self):
@@ -492,3 +495,64 @@ class TestWorkCreation(TestCase):
         # Verify author association was maintained
         self.assertEqual(work.authors.count(), 1)
         self.assertEqual(work.authors.first(), author) 
+
+    def test_work_creation_formats_pen_name(self):
+        """Test work creation properly formats pen name when real name is discovered"""
+        from django.http import QueryDict
+        from book.views.book_views import _handle_book_confirmation
+        import requests
+        from unittest.mock import patch
+        from django.contrib.sessions.backends.db import SessionStore
+        
+        # Create our test author with just the pen name initially
+        author = Author.objects.create(
+            primary_name="Max Brand",
+            search_name="max brand",
+            olid="OL10352592A"
+        )
+        
+        # Create a request object with POST data
+        request = HttpRequest()
+        request.method = 'POST'
+        request.session = SessionStore()  # Add empty session
+        request.session.create()
+        
+        # Mock the OpenLibrary work response that reveals the real name
+        request.POST = QueryDict('', mutable=True)
+        request.POST.update({
+            'title': 'The Mustang Herder',
+            'work_olid': 'OL14848834W',
+            'author_names': 'Frederick Faust',  # Real name
+            'author_olids': 'OL2748402A',      # Different OLID
+            'author_roles': '{"Frederick Faust":"AUTHOR"}',
+            'entry_type': 'SINGLE',
+            'selected_author_olid': author.olid,  # Pass through form instead of session
+            'selected_author_name': author.primary_name
+        })
+
+        # Mock the requests.get call for OpenLibrary author details
+        mock_response = {
+            'name': 'Frederick Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': ['Brand, Max', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944'
+        }
+        
+        with patch('requests.get') as mock_get:
+            mock_get.return_value.json.return_value = mock_response
+            mock_get.return_value.status_code = 200
+            
+            # Process the work creation
+            response = _handle_book_confirmation(request)
+        
+        # Verify the author was updated with formatted name
+        author.refresh_from_db()
+        assert author.primary_name == "Frederick 'Max Brand' Faust"
+        assert author.search_name == "max brand"  # Search name should remain unchanged
+        assert "Brand, Max" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names
+        
+        # Verify the work was created and associated
+        work = Work.objects.get(olid="OL14848834W")
+        assert work.authors.first() == author 

@@ -804,8 +804,22 @@ class TestPenNameBookEntry:
                 'first_publish_year': 1994
             }]
         }
+        
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10352592A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the full name search (which will fail)
         requests_mock.get(
             'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the last name search (which will succeed)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Brand&title=The+Mustang+Herder&limit=2',
             json=mock_work_response
         )
 
