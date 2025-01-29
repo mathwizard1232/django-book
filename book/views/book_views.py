@@ -1,6 +1,6 @@
 import logging
 import urllib.parse
-from django.http import HttpResponseRedirect, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseRedirect, HttpResponseBadRequest, JsonResponse, HttpResponseServerError
 from django.shortcuts import render
 from ..forms import TitleForm, TitleGivenAuthorForm, ConfirmBook, TitleOnlyForm, AuthorForm
 from ..models import Author, Work, Edition, Copy, Location, Shelf
@@ -10,98 +10,141 @@ from ..controllers.work_controller import WorkController
 import json
 import re
 from ..utils.author_utils import format_primary_name
+from django import forms
 
 logger = logging.getLogger(__name__)
 
 def get_title(request):
     """ Do a lookup of a book by title, with a particular author potentially already set """
-    logger.info("=== Title Entry Request Details ===")
-    logger.info("Session data: %s", dict(request.session))
-    logger.info("POST data: %s", dict(request.POST))
-    logger.info("GET data: %s", dict(request.GET))
-    
-    # Add logging for author context
-    logger.info("=== Author Context ===")
-    logger.info("Selected author OLID: %s", request.session.get('selected_author_olid'))
-    logger.info("Selected author name: %s", request.session.get('selected_author_name'))
-    
-    if request.method == 'GET':
-        if 'author_olid' in request.GET:
-            a_olid = request.GET['author_olid']
-            author_name = request.GET['author_name']
-            
-            # Check if we need to create the Author
-            if not Author.objects.filter(olid=a_olid).exists():
-                # Extract work count if present
-                work_count = None
-                if '(' in author_name and 'works)' in author_name:
-                    base_name = author_name.split('(')[0].strip()
-                    work_count = int(author_name.split('(')[1].split(' works)')[0])
-                
-                # If this is a high-quality match (significant work count), create Author
-                if work_count and work_count >= 100:  # We can adjust this threshold
-                    # Extract base name without work count
-                    search_name = author_name.split('(')[0].strip()
-                    
-                    # Fetch full author details from OpenLibrary
-                    ol = CachedOpenLibrary()
-                    author_details = ol.Author.get(a_olid)
-                    
-                    # Get OpenLibrary name (prefer personal_name if available)
-                    ol_name = author_details.get('personal_name') or author_details.get('name')
-                    
-                    # Create author with complete information
-                    Author.objects.create(
-                        olid=a_olid,
-                        primary_name=format_primary_name(search_name, ol_name),
-                        search_name=search_name.lower(),
-                        birth_date=author_details.get('birth_date'),
-                        death_date=author_details.get('death_date'),
-                        alternate_names=author_details.get('alternate_names', [])
-                    )
-            
-            form = TitleGivenAuthorForm({
-                'author_olid': a_olid, 
-                'author_name': author_name,
-                'author_role': request.GET.get('author_role', 'AUTHOR')
-            })
-            # Add logging for form processing after form is created
-            logger.info("=== Form Processing ===")
-            logger.info("Form initial data: %s", {
-                'author_olid': a_olid,
-                'author_name': author_name,
-                'author_role': request.GET.get('author_role', 'AUTHOR')
-            })
-            logger.info("Form is valid: %s", form.is_valid())
-            if not form.is_valid():
-                logger.error("Form errors: %s", form.errors)
-                
-            # Attempting to override with runtime value for url as a kludge for how to pass the author OLID
-            data_url = "/author/" + a_olid + "/title-autocomplete"
-            logger.info("new data url %s", data_url)
-            form.fields['title'].widget.attrs.update({
-                'autofocus': 'autofocus',
-                'class': 'basicAutoComplete',
-                'data-url': data_url,
-                'autocomplete': 'off'
-            })
+    try:
+        logger.info("=== Title Entry Request Details ===")
+        logger.info("Session data: %s", dict(request.session))
+        logger.info("POST data: %s", dict(request.POST))
+        logger.info("GET data: %s", dict(request.GET))
+        
+        # Add logging for author context
+        logger.info("=== Author Context ===")
+        logger.info("Selected author OLID: %s", request.session.get('selected_author_olid'))
+        logger.info("Selected author name: %s", request.session.get('selected_author_name'))
+        
+        # Collect first work data from GET or POST
+        collection_data = {}
+        if request.method == 'GET':
+            for key in ['first_work_title', 'first_work_olid', 'first_work_author_names', 
+                       'first_work_author_olids', 'first_work_publisher']:
+                if value := request.GET.get(key):
+                    collection_data[key] = value
         else:
-            form = TitleForm()
-            # Add logging for empty form
-            logger.info("=== Form Processing ===")
-            logger.info("Created empty TitleForm")
-        return render(request, 'title.html', {'form': form})
-    
-    if request.method == 'POST':
-        post_url = f"/confirm-book.html?title={request.POST['title']}"
-        if 'author_olid' in request.POST:
-            post_url += f"&author_olid={request.POST['author_olid']}"
-        if 'author_name' in request.POST:
-            post_url += f"&author_name={request.POST['author_name']}"
-        return HttpResponseRedirect(post_url)
+            for key in ['first_work_title', 'first_work_olid', 'first_work_author_names', 
+                       'first_work_author_olids', 'first_work_publisher']:
+                if value := request.POST.get(key):
+                    collection_data[key] = value
+
+        logger.info("=== Collection Data in Title Entry ===")
+        logger.info("Collection data: %s", collection_data)
+        
+        if request.method == 'GET':
+            if 'author_olid' in request.GET:
+                a_olid = request.GET['author_olid']
+                author_name = request.GET['author_name']
+                
+                # Check if we need to create the Author
+                if not Author.objects.filter(olid=a_olid).exists():
+                    # Extract work count if present
+                    work_count = None
+                    if '(' in author_name and 'works)' in author_name:
+                        base_name = author_name.split('(')[0].strip()
+                        work_count = int(author_name.split('(')[1].split(' works)')[0])
+                    
+                    # If this is a high-quality match (significant work count), create Author
+                    if work_count and work_count >= 100:  # We can adjust this threshold
+                        # Extract base name without work count
+                        search_name = author_name.split('(')[0].strip()
+                        
+                        # Fetch full author details from OpenLibrary
+                        ol = CachedOpenLibrary()
+                        author_details = ol.Author.get(a_olid)
+                        
+                        # Get OpenLibrary name (prefer personal_name if available)
+                        ol_name = author_details.get('personal_name') or author_details.get('name')
+                        
+                        # Create author with complete information
+                        Author.objects.create(
+                            olid=a_olid,
+                            primary_name=format_primary_name(search_name, ol_name),
+                            search_name=search_name.lower(),
+                            birth_date=author_details.get('birth_date'),
+                            death_date=author_details.get('death_date'),
+                            alternate_names=author_details.get('alternate_names', [])
+                        )
+                
+                form = TitleGivenAuthorForm({
+                    'author_olid': a_olid, 
+                    'author_name': author_name,
+                    'author_role': request.GET.get('author_role', 'AUTHOR')
+                })
+                # Add logging for form processing after form is created
+                logger.info("=== Form Processing ===")
+                logger.info("Form initial data: %s", {
+                    'author_olid': a_olid,
+                    'author_name': author_name,
+                    'author_role': request.GET.get('author_role', 'AUTHOR')
+                })
+                logger.info("Form is valid: %s", form.is_valid())
+                if not form.is_valid():
+                    logger.error("Form errors: %s", form.errors)
+                    
+                # Attempting to override with runtime value for url as a kludge for how to pass the author OLID
+                data_url = "/author/" + a_olid + "/title-autocomplete"
+                logger.info("new data url %s", data_url)
+                form.fields['title'].widget.attrs.update({
+                    'autofocus': 'autofocus',
+                    'class': 'basicAutoComplete',
+                    'data-url': data_url,
+                    'autocomplete': 'off'
+                })
+                
+                # Add collection data to context
+                return render(request, 'title.html', {
+                    'form': form,
+                    'collection_data': collection_data
+                })
+            else:
+                form = TitleForm()
+                return render(request, 'title.html', {
+                    'form': form,
+                    'collection_data': collection_data
+                })
+        
+        if request.method == 'POST':
+            # Create a new GET-style request with the POST data
+            get_request = request.GET.copy()
+            get_request.update({
+                'title': request.POST.get('title'),
+                'author_olid': request.POST.get('author_olid'),
+                'author_name': request.POST.get('author_name')
+            })
+            # Add collection data to GET request
+            for key, value in collection_data.items():
+                get_request[key] = value
+            request.GET = get_request
+            return _handle_book_search(request)
+            
+    except Exception as e:
+        logger.exception("Unhandled exception in get_title")
+        return HttpResponseServerError(f"Error processing title: {str(e)}")
 
 def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
+    logger.info("=== Book Confirmation Request Details ===")
+    logger.info("Session collection_first_work: %s", request.session.get('collection_first_work'))
+    logger.info("GET params first_work data: %s", {
+        k: v for k, v in request.GET.items() if k.startswith('first_work_')
+    })
+    logger.info("POST params first_work data: %s", {
+        k: v for k, v in request.POST.items() if k.startswith('first_work_')
+    })
+
     if request.method == 'POST':
         return WorkController(request).handle_book_confirmation()  # Try new controller
     else:
@@ -581,7 +624,18 @@ def _handle_book_confirmation(request):
 
 def _handle_book_search(request):
     """Search for and display potential book matches"""
+    logger.info("=== Collection Context at Start of Book Search ===")
+    logger.info("GET params first_work data: %s", {
+        k: v for k, v in request.GET.items() if k.startswith('first_work_')
+    })
+    logger.info("POST params first_work data: %s", {
+        k: v for k, v in request.POST.items() if k.startswith('first_work_')
+    })
+
     ol = CachedOpenLibrary()
+    
+    # Initialize form_args
+    form_args = {}
     
     # Get search parameters
     params = request.GET
@@ -589,24 +643,32 @@ def _handle_book_search(request):
         return HttpResponseBadRequest('Title required')
     
     search_title = params['title']
-    args = {}
     
     # Build author context and get local author if available
     local_author = None
     if 'author_name' in params:
-        args['author_name'] = params['author_name']
+        form_args['author_name'] = params['author_name']
     if 'author_olid' in params:
-        args['author_olid'] = params['author_olid']
-        local_author = Author.objects.filter(olid=args['author_olid']).first()
+        form_args['author_olid'] = params['author_olid']
+        local_author = Author.objects.filter(olid=form_args['author_olid']).first()
         logger.info("Found local author: %s with OLID %s", 
                    local_author.primary_name if local_author else None, 
-                   args['author_olid'])
+                   form_args['author_olid'])
     
-    context = {'title_url': "title.html?" + urllib.parse.urlencode(args)}
+    context = {'title_url': "title.html?" + urllib.parse.urlencode(form_args)}
 
-    # Check if we're in collection mode
-    if 'collection_first_work' in request.session:
-        context['first_work'] = request.session['collection_first_work']
+    # Get first work data from GET or POST params
+    first_work_data = {}
+    for key in ['first_work_title', 'first_work_olid', 'first_work_author_names', 
+               'first_work_author_olids', 'first_work_publisher']:
+        if value := request.GET.get(key) or request.POST.get(key):
+            first_work_data[key] = value
+
+    # Determine if we're in collection mode and set template accordingly
+    if first_work_data:
+        logger.info("=== Collection Mode Detected ===")
+        logger.info("First work details: %s", first_work_data)
+        context['first_work'] = first_work_data
         template = 'confirm-collection.html'
     else:
         template = 'confirm-book.html'
@@ -614,24 +676,24 @@ def _handle_book_search(request):
     # Handle local autocomplete results
     if DIVIDER in search_title:
         title, olid = search_title.split(DIVIDER)
-        args['title'] = title
-        args['work_olid'] = olid
+        form_args['title'] = title
+        form_args['work_olid'] = olid
         
         # Check for existing work with copies
         existing_work = Work.objects.filter(olid=olid).first()
         if existing_work and existing_work.edition_set.filter(copy__isnull=False).exists():
             context = {
                 'work': existing_work,
-                'form_data': args,
+                'form_data': form_args,
                 'locations': Location.objects.all()
             }
             return render(request, 'confirm-duplicate.html', context)
             
-        context['form'] = ConfirmBook(args)
+        context['form'] = ConfirmBook(form_args)
         return HttpResponseRedirect('/author')
 
     # Search OpenLibrary and build forms
-    results = _search_openlibrary(ol, search_title, args.get('author_olid'), args.get('author_name'))
+    results = _search_openlibrary(ol, search_title, form_args.get('author_olid'), form_args.get('author_name'))
     
     # Build forms for results
     forms = []
@@ -672,8 +734,8 @@ def _handle_book_search(request):
                     author_olid = local_author.olid
                     # Update the author name to match our local author
                     author_name = local_author.primary_name
-                elif args.get('author_olid') and author_name == args.get('author_name', '').split(' (')[0]:
-                    author_olid = args['author_olid']
+                elif form_args.get('author_olid') and author_name == form_args.get('author_name', '').split(' (')[0]:
+                    author_olid = form_args['author_olid']
                 else:
                     # Get author OLID from author_key if available
                     ol_author_id = None
@@ -692,28 +754,38 @@ def _handle_book_search(request):
                 else:
                     logger.warning("No OLID found for author: %s", author_name)
 
-        form_args = {
-            'title': display_title,
-            'work_olid': work_olid,
-            'author_names': ', '.join(author_names),
-            'author_olids': ','.join(author_olids)  # No need to filter since we only append valid OLIDs
-        }
-        
-        logger.info("Form args before creating ConfirmBook form: %s", form_args)
-        logger.info("Author names from form_args: %s", form_args.get('author_names'))
-        logger.info("Author OLIDs from form_args: %s", form_args.get('author_olids'))
-        
-        forms.append(ConfirmBook(form_args))
-        
+        # Update form_args BEFORE creating the form
+        form_args.update({
+            'title': result.title,
+            'work_olid': result.identifiers['olid'][0],
+            'author_names': ','.join(author_names),
+            'author_olids': ','.join(author_olids)
+        })
+
         # If this is the first result and we're in collection mode, add it as second_work
-        if 'collection_first_work' in request.session and len(forms) == 1:
-            context['second_work'] = {
+        if first_work_data and len(forms) == 1:
+            logger.info("=== Adding Second Work to Collection ===")
+            logger.info("First work from params: %s", first_work_data)
+            second_work = {
                 'title': result.title,
                 'work_olid': result.identifiers['olid'][0],
                 'author_names': result.authors[0]['name'] if result.authors else '',
-                'author_olids': form_args['author_olids'],
+                'author_olids': ','.join(author_olids),
                 'publisher': result.publisher[0] if hasattr(result, 'publisher') and result.publisher else 'Unknown'
             }
+            logger.info("Second work details: %s", second_work)
+            context['second_work'] = second_work
+            
+            # Add first work data to form_args
+            form_args.update({
+                'first_work_title': first_work_data['first_work_title'],
+                'first_work_olid': first_work_data['first_work_olid'],
+                'first_work_author_names': first_work_data['first_work_author_names'],
+                'first_work_author_olids': first_work_data['first_work_author_olids']
+            })
+
+        # Now create the form with the updated form_args
+        forms.append(ConfirmBook(form_args))
 
     # Add locations to context for the template
     context['locations'] = Location.objects.all()
@@ -921,24 +993,31 @@ def _handle_title_only_search(request, title):
 
 def start_collection(request):
     """Begin collection creation flow by rendering author page with first work context"""
-    if request.method != 'POST':
-        return HttpResponseBadRequest('POST required')
-        
-    # Create context with first work's details and form
-    context = {
-        'collection_first_work': {
-            'title': request.POST.get('first_work_title', request.POST.get('title')),
-            'work_olid': request.POST.get('work_olid'),
-            'author_names': request.POST.get('author_names'),
-            'author_olids': request.POST.get('author_olids'),
-            'publisher': request.POST.get('publisher'),
-        },
-        'form': AuthorForm(),  # Add the form to context
-        'author_role': 'AUTHOR'  # Ensure author_role is set
+    logger.info("=== Starting Collection Creation ===")
+    logger.info("POST data for first work: %s", dict(request.POST))
+    
+    # Create form context with first work's details - using the field names from the POST data
+    initial_data = {
+        'first_work_title': request.POST.get('first_work_title'),  # These match the names in the POST data
+        'first_work_olid': request.POST.get('first_work_olid'),
+        'first_work_author_names': request.POST.get('first_work_author_names'),
+        'first_work_author_olids': request.POST.get('first_work_author_olids'),
+        'first_work_publisher': request.POST.get('first_work_publisher')
     }
     
-    # Render author page with collection context
-    return render(request, 'author.html', context)
+    logger.info("Created initial data for collection: %s", initial_data)
+    
+    form = AuthorForm()
+    # Add hidden fields to form for collection data
+    for key, value in initial_data.items():
+        form.fields[key] = forms.CharField(widget=forms.HiddenInput(), initial=value)
+        logger.info("Added hidden field %s with value %s", key, value)
+    
+    return render(request, 'author.html', {
+        'form': form,
+        'author_role': 'AUTHOR',
+        'collection_data': initial_data  # Pass to template for display
+    })
 
 def cancel_collection(request):
     """Cancel collection creation and clear session data"""

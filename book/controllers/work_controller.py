@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Tuple
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.http import HttpResponseRedirect, HttpResponseBadRequest
+from django.http import HttpResponseRedirect, HttpResponseBadRequest, HttpResponseServerError
 import logging
 import urllib.parse
 import json
@@ -12,48 +12,74 @@ from ..utils.ol_client import CachedOpenLibrary
 logger = logging.getLogger(__name__)
 
 class WorkController:
-    def __init__(self, request: HttpRequest):
+    def __init__(self, request):
+        logger.info("=== Initializing WorkController ===")
+        logger.info("Request method: %s", request.method)
+        logger.info("POST data: %s", dict(request.POST))
+        logger.info("GET data: %s", dict(request.GET))
         self.request = request
         self.ol_client = CachedOpenLibrary()
         
     def handle_book_confirmation(self) -> HttpResponse:
         """Process the confirmed book selection and create local records"""
-        # Log request context
-        self._log_request_context()
-        
-        # Early returns
-        if self.request.POST.get('collection_first_work'):
-            return self._handle_collection_confirmation()
+        try:
+            logger.info("=== Starting handle_book_confirmation ===")
             
-        if not self.request.POST.get('work_olid'):
-            return HttpResponseBadRequest('work_olid required')
+            # Log request context
+            self._log_request_context()
             
-        # Get basic work data
-        work_data = self._get_work_data()
-        if not work_data:
-            return HttpResponseBadRequest('Could not fetch work data')
+            # Check if this is a collection confirmation
+            if self.request.POST.get('second_work_title'):
+                logger.info("=== Collection Flow Details ===")
+                logger.info("Second work title: %s", self.request.POST.get('second_work_title'))
+                logger.info("Collection title: %s", self.request.POST.get('title'))
+                return self._handle_collection_confirmation()
+                
+            # Early returns for single work flow
+            if not self.request.POST.get('work_olid'):
+                logger.error("No work_olid found in POST data")
+                return HttpResponseBadRequest('work_olid required')
+                
+            # Get basic work data
+            work_data = self._get_work_data()
+            if not work_data:
+                logger.error("Could not fetch work data")
+                return HttpResponseBadRequest('Could not fetch work data')
+                
+            # Check for existing work with copies
+            existing_work = self._check_existing_work()
+            if existing_work:
+                logger.info("Found existing work with copies")
+                return existing_work
+                
+            # Process authors
+            logger.info("Processing authors")
+            authors, editors = self._process_authors(work_data)
             
-        # Check for existing work with copies
-        existing_work = self._check_existing_work()
-        if existing_work:
-            return existing_work
+            # Create or get work
+            logger.info("Creating or getting work")
+            work = self._create_or_get_work(authors, editors)
             
-        # Process authors
-        authors, editors = self._process_authors(work_data)
-        
-        # Create or get work
-        work = self._create_or_get_work(authors, editors)
-        
-        # Handle editions and copies
-        message = self._handle_editions_and_copies(work)
-        
-        return HttpResponseRedirect(f'/author/?message={message}')
+            # Handle editions and copies
+            logger.info("Handling editions and copies")
+            message = self._handle_editions_and_copies(work)
+            
+            logger.info("Redirecting with message: %s", message)
+            return HttpResponseRedirect(f'/author/?message={message}')
+        except Exception as e:
+            logger.exception("=== CRITICAL ERROR in handle_book_confirmation ===")
+            logger.error("Error details: %s", str(e))
+            logger.error("Request POST data: %s", dict(self.request.POST))
+            logger.error("Request GET data: %s", dict(self.request.GET))
+            logger.error("Session data: %s", dict(self.request.session))
+            return HttpResponseServerError(f"Error processing book: {str(e)}")
         
     def _log_request_context(self) -> None:
         """Log detailed request information"""
         logger.info("=== Book Confirmation Request Details ===")
         logger.info("POST data: %s", dict(self.request.POST))
         logger.info("GET data: %s", dict(self.request.GET))
+        logger.info("Session data: %s", dict(self.request.session))
 
     def _get_work_data(self) -> Optional[Dict]:
         """Fetch and return work data from OpenLibrary"""
@@ -376,74 +402,73 @@ class WorkController:
         return message 
 
     def _handle_collection_confirmation(self) -> HttpResponse:
-        """Handle the confirmation of a second work to create a collection"""
+        """Handle the confirmation of a collection of works"""
+        logger.info("=== Starting Collection Confirmation ===")
+        
         # Get both works' details from POST data
         first_work = {
             'title': self.request.POST.get('first_work_title'),
-            'work_olid': self.request.POST.get('first_work_olid'),
-            'author_names': self.request.POST.get('first_work_author_names'),
-            'author_olids': self.request.POST.get('first_work_author_olids'),
-            'publisher': self.request.POST.get('first_work_publisher'),
+            'olid': self.request.POST.get('first_work_olid'),
+            'author_names': self.request.POST.get('first_work_author_names', '').split(','),
+            'author_olids': self.request.POST.get('first_work_author_olids', '').split(','),
         }
         
         second_work = {
             'title': self.request.POST.get('second_work_title'),
-            'work_olid': self.request.POST.get('second_work_olid'),
-            'author_names': self.request.POST.get('second_work_author_names'),
-            'author_olids': self.request.POST.get('second_work_author_olids'),
-            'publisher': self.request.POST.get('publisher'),
+            'olid': self.request.POST.get('second_work_olid'),
+            'author_names': self.request.POST.get('second_work_author_names', '').split(','),
+            'author_olids': self.request.POST.get('second_work_author_olids', '').split(','),
         }
         
-        # Create the collection work
         collection_title = self.request.POST.get('title')
-        collection = Work.objects.create(
-            title=collection_title,
-            search_name=collection_title,
-            type='COLLECTION'
-        )
         
-        # Create and link the component works
-        works_to_create = [first_work, second_work]
-        contained_works = []
+        # Create or get the works
+        works = []
         all_authors = set()
         
-        for work_data in works_to_create:
-            logger.info("Processing work data: %s", work_data)
-            work = Work.objects.filter(olid=work_data['work_olid']).first()
+        for work_data in [first_work, second_work]:
+            if not work_data['olid']:
+                continue
+            
+            work = Work.objects.filter(olid=work_data['olid']).first()
             if not work:
                 work = Work.objects.create(
-                    olid=work_data['work_olid'],
+                    olid=work_data['olid'],
                     title=work_data['title'],
-                    search_name=work_data['title'],
+                    search_name=work_data['title'].lower(),
                     type='NOVEL'
                 )
                 
                 # Add authors
-                if work_data['author_olids']:
-                    for olid, name in zip(work_data['author_olids'].split(','), 
-                                        work_data['author_names'].split(',')):
-                        if olid:
-                            author = Author.objects.get_or_fetch(olid)
-                            if author:
-                                work.authors.add(author)
-                                all_authors.add(author)
+                for olid, name in zip(work_data['author_olids'], work_data['author_names']):
+                    if olid:
+                        author = Author.objects.get_or_fetch(olid)
+                        if author:
+                            work.authors.add(author)
+                            all_authors.add(author)
             else:
                 all_authors.update(work.authors.all())
             
-            contained_works.append(work)
-            
-        # Add all collected authors to the collection
+            works.append(work)
+        
+        # Create the collection
+        collection = Work.objects.create(
+            title=collection_title,
+            search_name=collection_title.lower(),
+            type='COLLECTION'
+        )
+        
+        # Add authors and component works
         for author in all_authors:
             collection.authors.add(author)
         
-        # Link both works to the collection
-        for work in contained_works:
+        for work in works:
             collection.component_works.add(work)
-            
+        
         # Create edition and copy
         edition = Edition.objects.create(
             work=collection,
-            publisher="Various" if first_work['publisher'] != second_work['publisher'] else first_work['publisher'],
+            publisher=self.request.POST.get('publisher', 'Various'),
             format="PAPERBACK"
         )
         
@@ -468,8 +493,9 @@ class WorkController:
         Copy.objects.create(**copy_data)
         
         # Create appropriate message
-        if action == 'Confirm and Shelve' and shelf_id:
-            location_path = f"{shelf.bookcase.get_location().name} > {shelf.bookcase.room.name} > {shelf.bookcase.name} > Shelf {shelf.position}"
+        if action == 'Confirm and Shelve' and 'shelf' in copy_data:
+            location_path = (f"{copy_data['location'].name} > {copy_data['room'].name} > "
+                            f"{copy_data['bookcase'].name} > Shelf {copy_data['shelf'].position}")
             message = f"new_copy_shelved&title={urllib.parse.quote(collection_title)}&location={urllib.parse.quote(location_path)}"
         else:
             message = f"new_work&title={urllib.parse.quote(collection_title)}"

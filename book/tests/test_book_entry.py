@@ -210,6 +210,18 @@ class TestISBNEntry:
             'https://openlibrary.org/search.json?isbn=0451528557',
             json=mock_search_response
         )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'Test Book',
+                'authors': [{'key': '/authors/OL123A'}],
+                'type': {'key': '/type/work'},
+                'first_publish_date': '2023'
+            }
+        )
         
         # Create test author in database
         author = Author.objects.create(

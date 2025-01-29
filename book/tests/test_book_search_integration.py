@@ -7,6 +7,11 @@ from book.models import Author, Work
 from book.utils.ol_client import CachedOpenLibrary
 from unittest.mock import patch, MagicMock
 
+@pytest.fixture
+def mock_ol():
+    with patch('book.views.book_views.CachedOpenLibrary') as mock:
+        yield mock
+
 @pytest.mark.django_db
 class TestBookSearchIntegration:
     def setup_method(self):
@@ -253,4 +258,64 @@ class TestBookSearchIntegration:
             {'author_name': 'Frederick Schiller Faust', 'title': 'The Mustang Herder', 'search_local': 'true'}
         )
         assert response.status_code == 200
-        assert 'The Mustang Herder' in str(response.content) 
+        assert 'The Mustang Herder' in str(response.content)
+
+    @pytest.mark.django_db
+    def test_title_search_with_first_work_data(self, mock_ol):
+        """Test that first work data is properly maintained through title search form generation"""
+        
+        # Create test author
+        author = Author.objects.create(
+            primary_name="Kris Neville",
+            search_name="kris neville",
+            olid="OL1346866A"
+        )
+
+        # Mock OpenLibrary client
+        mock_ol_instance = MagicMock()
+        mock_ol.return_value = mock_ol_instance
+
+        # First work data that should be preserved
+        first_work_data = {
+            'first_work_title': 'Flame of Iridar',
+            'first_work_olid': 'OL28676491W',
+            'first_work_author_names': 'Lin Carter, Kris Neville',
+            'first_work_author_olids': 'OL1813446A',
+        }
+
+        # Make request with both author and first work data
+        response = self.client.get(
+            reverse('get_title'),
+            {
+                'author_olid': author.olid,
+                'author_name': author.primary_name,
+                'author_role': 'AUTHOR',
+                **first_work_data  # Include all first work data as GET params
+            }
+        )
+
+        # Debug output
+        print("\n=== Debug Output ===")
+        print("Response Status:", response.status_code)
+        print("\nContext Data:")
+        print("Collection data:", response.context.get('collection_data', {}))
+        print("\nPage Source:")
+        print(response.content.decode())
+
+        # Verify response
+        assert response.status_code == 200
+        
+        # Check that the template got both form and collection_data context
+        assert 'form' in response.context
+        assert 'collection_data' in response.context
+        
+        # Verify all first work fields are present in collection_data
+        collection_data = response.context['collection_data']
+        for key, value in first_work_data.items():
+            assert key in collection_data, f"Missing {key} in collection_data"
+            assert collection_data[key] == value, f"Incorrect value for {key} in collection_data"
+
+        # Verify the rendered HTML contains the hidden inputs with correct values
+        for key, value in first_work_data.items():
+            expected_html = f'name="{key}" value="{value}"'
+            assert expected_html in response.content.decode(), f"Missing or incorrect {key} field in form" 

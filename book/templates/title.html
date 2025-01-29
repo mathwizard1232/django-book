@@ -6,13 +6,19 @@
     {{ form.author_name }}
     {{ form.author_olid }}
     
-    {% if request.session.collection_first_work %}
-        <input type="hidden" name="collection_title" value="{{ request.session.collection_first_work.title }}">
-        <input type="hidden" name="collection_work_olid" value="{{ request.session.collection_first_work.work_olid }}">
-        <input type="hidden" name="collection_author_names" value="{{ request.session.collection_first_work.author_names }}">
-        <input type="hidden" name="collection_author_olids" value="{{ request.session.collection_first_work.author_olids }}">
-        <input type="hidden" name="collection_publisher" value="{{ request.session.collection_first_work.publisher }}">
-    {% endif %}
+    {# Debug output #}
+    <!-- Debug: {{ form.hidden_fields }} -->
+    
+    {# Explicit hidden fields using collection_data #}
+    <input type="hidden" name="first_work_title" value="{{ collection_data.first_work_title|default:'' }}">
+    <input type="hidden" name="first_work_olid" value="{{ collection_data.first_work_olid|default:'' }}">
+    <input type="hidden" name="first_work_author_names" value="{{ collection_data.first_work_author_names|default:'' }}">
+    <input type="hidden" name="first_work_author_olids" value="{{ collection_data.first_work_author_olids|default:'' }}">
+    
+    {# Include any other hidden fields that were added to the form #}
+    {% for field in form.hidden_fields %}
+        {{ field }}
+    {% endfor %}
     
     <div class="form-group">
         {{ form.title }}

@@ -159,3 +159,21 @@ class ISBNForm(forms.Form):
         })
     )
     
+class CollectionConfirmationForm(forms.Form):
+    # First work fields
+    first_work_title = forms.CharField(widget=forms.HiddenInput())
+    first_work_olid = forms.CharField(widget=forms.HiddenInput())
+    first_work_author_names = forms.CharField(widget=forms.HiddenInput())
+    first_work_author_olids = forms.CharField(widget=forms.HiddenInput())
+    first_work_publisher = forms.CharField(widget=forms.HiddenInput(), required=False)
+    
+    # Second work fields
+    second_work_title = forms.CharField(widget=forms.HiddenInput())
+    second_work_olid = forms.CharField(widget=forms.HiddenInput())
+    second_work_author_names = forms.CharField(widget=forms.HiddenInput())
+    second_work_author_olids = forms.CharField(widget=forms.HiddenInput())
+    second_work_publisher = forms.CharField(widget=forms.HiddenInput(), required=False)
+    
+    # Collection fields
+    collection_title = forms.CharField(label='Collection Title')
+    

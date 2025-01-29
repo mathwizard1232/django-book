@@ -75,3 +75,7 @@ Reference: See base.html [lines 10-68] for consistent styling patterns.
 This style guide should evolve with the project. When patterns emerge that help maintain code quality and developer sanity, they should be added here.
 
 Remember: These guidelines exist to make development easier and more maintainable, not to create unnecessary restrictions. Use judgment when applying them. 
+
+### 6. Avoid unnecessary redirects
+
+- Instead of using an HTTP redirect, use internal function calls when possible

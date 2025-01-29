@@ -100,17 +100,16 @@ class BookPage(BasePage):
         assert actual_title == expected_title
 
     def confirm_collection(self):
-        """Confirm the collection creation."""
-        confirm_button = self.find_clickable(
-            By.CSS_SELECTOR,
-            'input[name="action"][value="Confirm Without Shelving"]'
+        """Confirm the collection by clicking the 'Confirm Without Shelving' button."""
+        confirm_button = self.wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[value="Confirm Without Shelving"]'))
         )
         confirm_button.click()
         
-        # Wait for success alert
+        # Wait for success message after confirmation
         self.wait.until(
-            EC.presence_of_element_located(self.success_alert)
-        ) 
+            EC.presence_of_element_located((By.CLASS_NAME, 'alert-success'))
+        )
 
     def modify_first_work_title(self, new_title):
         """Modify the first work's title on the collection confirmation page."""
@@ -120,14 +119,20 @@ class BookPage(BasePage):
         title_input.clear()
         title_input.send_keys(new_title)
         
-    def modify_second_work_title(self, new_title):
+    def modify_second_work_title(self, title):
         """Modify the second work's title on the collection confirmation page."""
-        title_input = self.wait.until(
-            EC.presence_of_element_located(self.second_work_title_input)
+        print("\nAttempting to modify second work title")
+        print(f"Current URL: {self.browser.current_url}")
+ #       print("Current page source:")
+#        print(self.browser.page_source)
+        
+        title_input = self.wait_for(
+            EC.presence_of_element_located(self.second_work_title_input),
+            "Could not find second work title input"
         )
         title_input.clear()
-        title_input.send_keys(new_title) 
-
+        title_input.send_keys(title)
+        
     def modify_collection_title(self, new_title):
         """Modify the collection title on the collection confirmation page."""
         title_input = self.wait.until(

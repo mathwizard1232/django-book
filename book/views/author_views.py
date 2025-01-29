@@ -6,6 +6,7 @@ from ..models import Author
 from ..utils.ol_client import CachedOpenLibrary
 from .autocomplete_views import DIVIDER  # Import the DIVIDER from autocomplete_views
 from django.views.decorators.http import require_GET
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +23,32 @@ def get_author(request):
             author_role = request.POST.get('author_role', 'AUTHOR').upper()
             logger.info("POST processing - author_role: %s", author_role)
             
+            # Collect first work data from POST
+            first_work_params = {
+                k: v for k, v in request.POST.items() 
+                if k.startswith('first_work_')
+            }
+            
             # Check if this is an autocomplete result with DIVIDER
             if DIVIDER in name:
                 # This is a local author result, extract name and olid
                 name, olid = name.split(DIVIDER)
-                return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
+                # Add first work params to redirect URL
+                redirect_params = {
+                    'author_olid': olid,
+                    'author_name': name,
+                    'author_role': author_role,
+                    **first_work_params
+                }
+                return HttpResponseRedirect(f'/title.html?{urlencode(redirect_params, doseq=True)}')
             
-            # For OpenLibrary results, redirect to confirmation
-            return HttpResponseRedirect(f'/confirm-author.html?author_name={name}&author_role={author_role}')
+            # For OpenLibrary results, redirect to confirmation with first work params
+            redirect_params = {
+                'author_name': name,
+                'author_role': author_role,
+                **first_work_params
+            }
+            return HttpResponseRedirect(f'/confirm-author.html?{urlencode(redirect_params, doseq=True)}')
     
     author_role = request.GET.get('author_role', 'AUTHOR').upper()
     logger.info("GET processing - author_role: %s", author_role)
@@ -76,6 +95,10 @@ def sort_authors_by_quality(authors):
 def confirm_author(request):
     """ Do a lookup of this author by the name sent and display and confirm details from OpenLibrary """
     if request.method == 'GET':
+        logger.info("=== Collection Data in Confirm Author ===")
+        logger.info("GET params collection data: %s", {
+            k: v for k, v in request.GET.items() if k.startswith('first_work_')
+        })
         name = request.GET['author_name']
         author_role = request.GET.get('author_role', 'AUTHOR')
         
@@ -158,6 +181,10 @@ def confirm_author(request):
         return render(request, 'confirm-author.html', context)
 
     if request.method == 'POST':
+        logger.info("=== Collection Data in Confirm Author POST ===")
+        logger.info("POST params collection data: %s", {
+            k: v for k, v in request.POST.items() if k.startswith('first_work_')
+        })
         # Get the author role from the form
         author_role = request.POST.get('author_role', 'AUTHOR')
         

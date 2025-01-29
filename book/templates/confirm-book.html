@@ -15,6 +15,14 @@
                     <form action="/confirm-book.html" method="post">
                         {% csrf_token %}
                         
+                        <!-- Preserve first work data in hidden fields -->
+                        {% if form.first_work_title %}
+                        <input type="hidden" name="first_work_title" value="{{ form.first_work_title.value }}">
+                        <input type="hidden" name="first_work_olid" value="{{ form.first_work_olid.value }}">
+                        <input type="hidden" name="first_work_author_names" value="{{ form.first_work_author_names.value }}">
+                        <input type="hidden" name="first_work_author_olids" value="{{ form.first_work_author_olids.value }}">
+                        {% endif %}
+
                         <!-- Author Display -->
                         <div class="form-group mb-3">
                             <label>Author(s):</label>
@@ -493,6 +501,23 @@
 
         // Call this when document is ready
         document.addEventListener('DOMContentLoaded', syncTitleToCollectionForm);
+
+        // Sync the visible title field with the hidden collection form field
+        document.addEventListener('DOMContentLoaded', function() {
+            const visibleTitleInput = document.querySelector('input[name="title"]');
+            const hiddenTitleInput = document.querySelector('input[name="first_work_title"]');
+            
+            if (visibleTitleInput && hiddenTitleInput) {
+                visibleTitleInput.addEventListener('input', function() {
+                    hiddenTitleInput.value = this.value;
+                });
+                
+                // Also sync on change event to catch paste operations
+                visibleTitleInput.addEventListener('change', function() {
+                    hiddenTitleInput.value = this.value;
+                });
+            }
+        });
     </script>
 </div>
 {% endblock %}
