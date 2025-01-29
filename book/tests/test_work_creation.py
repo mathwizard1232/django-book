@@ -474,16 +474,28 @@ class TestWorkCreation(TestCase):
             'entry_type': 'SINGLE'
         })
         
-        # Call the confirmation function
-        controller = WorkController(request)
-        response = controller.handle_book_confirmation()
+        # Mock the OpenLibrary API response
+        mock_work_response = {
+            'title': 'The Mustang Herder',
+            'key': '/works/OL123W',
+            'authors': [{'key': f'/authors/{author.olid}'}],
+            'type': {'key': '/type/work'}
+        }
+
+        with requests_mock.Mocker() as m:
+            # Mock the work details endpoint
+            m.get('https://openlibrary.org/works/OL123W.json', json=mock_work_response)
+            
+            # Call the confirmation function
+            controller = WorkController(request)
+            response = controller.handle_book_confirmation()
         
-        # Look up the created work
-        work = Work.objects.get(olid='OL123W')
-        
-        # Verify author association was maintained
-        self.assertEqual(work.authors.count(), 1)
-        self.assertEqual(work.authors.first(), author) 
+            # Look up the created work
+            work = Work.objects.get(olid='OL123W')
+            
+            # Verify author association was maintained
+            self.assertEqual(work.authors.count(), 1)
+            self.assertEqual(work.authors.first(), author)
 
     def test_work_creation_preserves_author_through_confirmation(self):
         """Test that work creation preserves author association through the confirmation process"""
@@ -504,14 +516,26 @@ class TestWorkCreation(TestCase):
             'entry_type': 'SINGLE'
         })
 
-        # Use the controller instead of the old function
-        controller = WorkController(request)
-        response = controller.handle_book_confirmation()
-        
-        # Look up the created work
-        work = Work.objects.get(olid='OL123W')
-        assert work is not None
-        assert work.authors.first() == author 
+        # Mock the OpenLibrary API response
+        mock_work_response = {
+            'title': 'Test Book',
+            'key': '/works/OL123W',
+            'authors': [{'key': f'/authors/{author.olid}'}],
+            'type': {'key': '/type/work'}
+        }
+
+        with requests_mock.Mocker() as m:
+            # Mock the work details endpoint
+            m.get('https://openlibrary.org/works/OL123W.json', json=mock_work_response)
+            
+            # Use the controller instead of the old function
+            controller = WorkController(request)
+            response = controller.handle_book_confirmation()
+            
+            # Look up the created work
+            work = Work.objects.get(olid='OL123W')
+            assert work is not None
+            assert work.authors.first() == author
 
     def test_work_creation_formats_pen_name(self):
         """Test work creation properly formats pen name when real name is discovered"""
