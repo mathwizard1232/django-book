@@ -7,6 +7,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from unittest.mock import patch
 import requests_mock
 import requests
+from book.views.book_views import get_title
 
 class TestWorkCreation(TestCase):
     def setUp(self):
@@ -343,21 +344,33 @@ class TestWorkCreation(TestCase):
         request.session = SessionStore()
         request.session.create()
         
-        # Call the view function (which returns a redirect)
-        controller = WorkController(request)
-        response = controller.handle_book_confirmation()
+        # Mock the OpenLibrary API response
+        mock_work_response = {
+            'title': 'The Mustang Herder',
+            'key': '/works/OL123W',
+            'authors': [{'key': f'/authors/{author.olid}'}],
+            'type': {'key': '/type/work'}
+        }
         
-        # Look up the created work
-        work = Work.objects.get(olid='OL123W')
-        
-        # Verify author association
-        self.assertEqual(work.authors.count(), 1)
-        self.assertEqual(work.authors.first(), author) 
+        with requests_mock.Mocker() as m:
+            # Mock the work details endpoint
+            m.get('https://openlibrary.org/works/OL123W.json', json=mock_work_response)
+            
+            # Call the view function (which returns a redirect)
+            controller = WorkController(request)
+            response = controller.handle_book_confirmation()
+            
+            # Look up the created work
+            work = Work.objects.get(olid='OL123W')
+            
+            # Verify author association
+            self.assertEqual(work.authors.count(), 1)
+            self.assertEqual(work.authors.first(), author)
 
     def test_work_creation_maintains_author_through_search_and_confirmation(self):
         """Test that work creation maintains the selected author through both search and confirmation"""
         from django.http import QueryDict
-        from book.controllers import get_title
+        from book.views.book_views import get_title
         from book.controllers.work_controller import WorkController
         
         # Create our test author first
@@ -367,53 +380,65 @@ class TestWorkCreation(TestCase):
             olid="OL10356294A"
         )
         
-        # First simulate the title search step
-        search_request = HttpRequest()
-        search_request.method = 'POST'
-        search_request.session = SessionStore()
-        search_request.session.create()
-        
-        # Store the author info in session like the selection would
-        search_request.session['selected_author_olid'] = author.olid
-        search_request.session['selected_author_name'] = author.primary_name
-        
-        # This matches what we see in the title search step
-        search_request.POST = QueryDict('', mutable=True)
-        search_request.POST.update({
+        # Mock responses for both the search and work details
+        mock_work_response = {
             'title': 'The Mustang Herder',
-            'author_olid': author.olid,
-            'author_name': 'Max Brand'
-        })
+            'key': '/works/OL123W',
+            'authors': [{'key': f'/authors/{author.olid}'}],
+            'type': {'key': '/type/work'}
+        }
         
-        # Call the title entry function
-        search_response = get_title(search_request)
-        
-        # Now simulate the confirmation step
-        confirm_request = HttpRequest()
-        confirm_request.method = 'POST'
-        confirm_request.session = search_request.session  # Maintain the same session
-        
-        # This matches what we see in the confirmation step
-        confirm_request.POST = QueryDict('', mutable=True)
-        confirm_request.POST.update({
-            'title': 'The Mustang Herder',
-            'work_olid': 'OL123W',
-            'author_names': 'Frederick Faust',  # Different name from search
-            'author_olids': author.olid,  # Should still have the original OLID
-            'author_roles': '{"Frederick Faust":"AUTHOR"}',
-            'entry_type': 'SINGLE'
-        })
-        
-        # Call the confirmation function
-        controller = WorkController(confirm_request)
-        confirm_response = controller.handle_book_confirmation()
-        
-        # Look up the created work
-        work = Work.objects.get(olid='OL123W')
-        
-        # Verify author association was maintained through both steps
-        self.assertEqual(work.authors.count(), 1)
-        self.assertEqual(work.authors.first(), author) 
+        with requests_mock.Mocker() as m:
+            # Mock the work details endpoint
+            m.get('https://openlibrary.org/works/OL123W.json', json=mock_work_response)
+            
+            # First simulate the title search step
+            search_request = HttpRequest()
+            search_request.method = 'POST'
+            search_request.session = SessionStore()
+            search_request.session.create()
+            
+            # Store the author info in session like the selection would
+            search_request.session['selected_author_olid'] = author.olid
+            search_request.session['selected_author_name'] = author.primary_name
+            
+            # This matches what we see in the title search step
+            search_request.POST = QueryDict('', mutable=True)
+            search_request.POST.update({
+                'title': 'The Mustang Herder',
+                'author_olid': author.olid,
+                'author_name': 'Max Brand'
+            })
+            
+            # Call the title entry function
+            search_response = get_title(search_request)
+            
+            # Now simulate the confirmation step
+            confirm_request = HttpRequest()
+            confirm_request.method = 'POST'
+            confirm_request.session = search_request.session  # Maintain the same session
+            
+            # This matches what we see in the confirmation step
+            confirm_request.POST = QueryDict('', mutable=True)
+            confirm_request.POST.update({
+                'title': 'The Mustang Herder',
+                'work_olid': 'OL123W',
+                'author_names': 'Frederick Faust',  # Different name from search
+                'author_olids': author.olid,  # Should still have the original OLID
+                'author_roles': '{"Frederick Faust":"AUTHOR"}',
+                'entry_type': 'SINGLE'
+            })
+            
+            # Call the confirmation function
+            controller = WorkController(confirm_request)
+            confirm_response = controller.handle_book_confirmation()
+            
+            # Look up the created work
+            work = Work.objects.get(olid='OL123W')
+            
+            # Verify author association was maintained through both steps
+            self.assertEqual(work.authors.count(), 1)
+            self.assertEqual(work.authors.first(), author)
 
     def test_work_creation_maintains_author_when_found_by_different_name(self):
         """Test work creation maintains author when OpenLibrary search finds them by a different name"""
