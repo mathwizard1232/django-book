@@ -3,8 +3,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from .base_page import BasePage
 
 class BookPage(BasePage):
-    def __init__(self, driver):
-        super().__init__(driver)
+    def __init__(self, browser):
+        super().__init__(browser)
         self.url = '/title/'
         self.title_input = (By.NAME, 'title')
         self.confirm_button = (By.CSS_SELECTOR, 'input[type="submit"]')
@@ -22,7 +22,7 @@ class BookPage(BasePage):
         
     def navigate(self):
         """Navigate to the title entry page."""
-        self.driver.get(self.driver.current_url.split('#')[0] + self.url)
+        self.browser.get(self.browser.current_url.split('#')[0] + self.url)
         
     def wait_for_title_form(self):
         """Wait for the title form to be present."""
@@ -154,7 +154,7 @@ class BookPage(BasePage):
     def select_shelf(self, shelf_name):
         """Select a shelf from the dropdown"""
         print(f"\nAttempting to select shelf: {shelf_name}")
-        print(f"Current URL: {self.driver.current_url}")
+        print(f"Current URL: {self.browser.current_url}")
         
         # Wait for shelf dropdown to be present
         try:
@@ -179,7 +179,7 @@ class BookPage(BasePage):
             print("Failed to find/wait for shelf dropdown:", str(e))
             print("Available elements with IDs:", [
                 elem.get_attribute('id') 
-                for elem in self.driver.find_elements(By.CSS_SELECTOR, '[id]')
+                for elem in self.browser.find_elements(By.CSS_SELECTOR, '[id]')
             ])
             raise
         

@@ -3,8 +3,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from .base_page import BasePage
 
 class ISBNPage(BasePage):
-    def __init__(self, driver):
-        super().__init__(driver)
+    def __init__(self, browser):
+        super().__init__(browser)
         self.url = '/isbn/'
         self.isbn_input = (By.NAME, 'isbn')
         self.submit_button = (By.CSS_SELECTOR, 'button[type="submit"]')
@@ -15,7 +15,7 @@ class ISBNPage(BasePage):
         
     def navigate(self):
         """Navigate to the ISBN entry page."""
-        self.driver.get(self.driver.current_url.split('#')[0] + self.url)
+        self.browser.get(self.browser.current_url.split('#')[0] + self.url)
         
     def enter_isbn(self, isbn):
         """Enter an ISBN."""

@@ -6,8 +6,8 @@ import time
 
 class LocationPage(BasePage):
     """Page object for location management"""
-    def __init__(self, driver):
-        super().__init__(driver)
+    def __init__(self, browser):
+        super().__init__(browser)
         self.url = '/locations/'
         # Locators
         self.location_form = (By.ID, 'locationForm')
@@ -20,7 +20,7 @@ class LocationPage(BasePage):
 
     def navigate(self):
         """Navigate to the locations page."""
-        self.driver.get(self.driver.current_url.split('#')[0] + self.url)
+        self.browser.get(self.browser.current_url.split('#')[0] + self.url)
         # Wait for form to be present
         self.wait.until(EC.presence_of_element_located(self.location_form))
 
