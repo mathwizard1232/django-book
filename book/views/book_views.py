@@ -763,7 +763,7 @@ def _handle_book_search(request):
         })
 
         # If this is the first result and we're in collection mode, add it as second_work
-        if first_work_data and len(forms) == 1:
+        if first_work_data:
             logger.info("=== Adding Second Work to Collection ===")
             logger.info("First work from params: %s", first_work_data)
             second_work = {
@@ -777,15 +777,23 @@ def _handle_book_search(request):
             context['second_work'] = second_work
             
             # Add first work data to form_args
+            logger.info("=== Adding First Work Data to Form Args ===")
+            logger.info("First work data before update: %s", first_work_data)
+            logger.info("Form args before update: %s", form_args)
             form_args.update({
                 'first_work_title': first_work_data['first_work_title'],
                 'first_work_olid': first_work_data['first_work_olid'],
                 'first_work_author_names': first_work_data['first_work_author_names'],
                 'first_work_author_olids': first_work_data['first_work_author_olids']
             })
+            logger.info("Form args after update: %s", form_args)
 
         # Now create the form with the updated form_args
-        forms.append(ConfirmBook(form_args))
+        form = ConfirmBook(form_args)
+        logger.info("=== Created Form ===")
+        logger.info("Form data: %s", form.data)
+        forms.append(form)
+        context['form'] = form
 
     # Add locations to context for the template
     context['locations'] = Location.objects.all()

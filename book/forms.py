@@ -62,6 +62,12 @@ class ConfirmBook(forms.Form):
     author_olids = forms.CharField(required=False, widget=forms.HiddenInput())
     author_names = forms.CharField(required=False, widget=forms.HiddenInput())
     
+    # First work fields for collection mode
+    first_work_title = forms.CharField(widget=forms.HiddenInput(), required=False)
+    first_work_olid = forms.CharField(widget=forms.HiddenInput(), required=False)
+    first_work_author_names = forms.CharField(widget=forms.HiddenInput(), required=False)
+    first_work_author_olids = forms.CharField(widget=forms.HiddenInput(), required=False)
+    
     # Role selection for the authors
     ROLE_CHOICES = [
         ('AUTHOR', 'Author'),

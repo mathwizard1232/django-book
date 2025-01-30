@@ -18,11 +18,11 @@
                     <div class="form-group">
                         <label>Title</label>
                         <input type="text" class="form-control" name="first_work_title" 
-                               value="{{ first_work.title }}">
+                               value="{{ form.first_work_title.value }}">
                     </div>
                     <div class="form-group mt-2">
                         <label>Author(s)</label>
-                        {% with author_names=first_work.author_names|split:',' %}
+                        {% with author_names=form.first_work_author_names.value|split:',' %}
                             {% for author_name in author_names %}
                                 <input type="text" class="form-control mb-2" value="{{ author_name }}" readonly>
                             {% endfor %}
@@ -56,9 +56,9 @@
                 </div>
 
                 <!-- Hidden fields for both works -->
-                <input type="hidden" name="first_work_olid" value="{{ first_work.work_olid }}">
-                <input type="hidden" name="first_work_author_names" value="{{ first_work.author_names }}">
-                <input type="hidden" name="first_work_author_olids" value="{{ first_work.author_olids }}">
+                <input type="hidden" name="first_work_olid" value="{{ form.first_work_olid.value }}">
+                <input type="hidden" name="first_work_author_names" value="{{ form.first_work_author_names.value }}">
+                <input type="hidden" name="first_work_author_olids" value="{{ form.first_work_author_olids.value }}">
                 
                 <input type="hidden" name="second_work_olid" value="{{ second_work.work_olid }}">
                 <input type="hidden" name="second_work_author_names" value="{{ second_work.author_names }}">

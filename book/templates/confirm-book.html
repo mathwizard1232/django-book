@@ -16,7 +16,7 @@
                         {% csrf_token %}
                         
                         <!-- Preserve first work data in hidden fields -->
-                        {% if form.first_work_title %}
+                        {% if form.first_work_title.value is not None %}
                         <input type="hidden" name="first_work_title" value="{{ form.first_work_title.value }}">
                         <input type="hidden" name="first_work_olid" value="{{ form.first_work_olid.value }}">
                         <input type="hidden" name="first_work_author_names" value="{{ form.first_work_author_names.value }}">
@@ -59,6 +59,14 @@
                         {{ form.author_olids }}
                         {{ form.author_names }}
                         
+                        <!-- Add first work fields if this is part of a collection -->
+                        {% if form.first_work_title.value is not None %}
+                        <input type="hidden" name="first_work_title" value="{{ form.first_work_title.value }}">
+                        <input type="hidden" name="first_work_olid" value="{{ form.first_work_olid.value }}">
+                        <input type="hidden" name="first_work_author_names" value="{{ form.first_work_author_names.value }}">
+                        <input type="hidden" name="first_work_author_olids" value="{{ form.first_work_author_olids.value }}">
+                        {% endif %}
+
                         <!-- Multi-volume section -->
                         <div class="multivolume-section mb-3">
                             <div class="form-check">
