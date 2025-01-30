@@ -167,6 +167,14 @@
             // Get author role
             const authorRole = $('#authorRole').val() || 'AUTHOR';
             
+            // Add hidden input for original search term
+            const searchTerm = $('.basicAutoComplete').data('original-search');
+            $('<input>').attr({
+                type: 'hidden',
+                name: 'search_term',
+                value: searchTerm
+            }).appendTo(form);
+            
             // Update or create hidden author_role input
             let roleInput = form.find('input[name="author_role"]');
             if (roleInput.length === 0) {
@@ -189,6 +197,11 @@
             
             // Submit the form
             form.submit();
+        });
+
+        // Store the search term when user types
+        $('.basicAutoComplete').on('input', function() {
+            $(this).data('original-search', $(this).val());
         });
 
         // Get initial state from hidden input

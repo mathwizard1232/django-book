@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 def get_author(request):
     """ Render a form requesting author name, then redirect to confirmation of details """
     # Debug logging for request
-    logger.info("GET params: %s", request.GET)
-    logger.info("POST params: %s", request.POST)
+    logger.info("`get_author` GET params: %s", request.GET)
+    logger.info("`get_author` POST params: %s", request.POST)
     
     if request.method == 'POST':
         form = AuthorForm(request.POST)
