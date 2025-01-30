@@ -51,12 +51,15 @@ class TestAuthorWorkIntegration:
                 'author_alternative_name': ['Test Author']
             }
             
-            mock_ol_views_instance.Work.search.return_value = [{
-                'key': '/works/OL123W',
-                'title': 'Test Book',
-                'author_name': ['Different Name'],
-                'author_key': ['OL123A']
-            }]
+            mock_ol_views_instance.Work.search.return_value = [SimpleNamespace(
+                olid='OL123W',
+                title='Test Book',
+                publish_date=2023,
+                publisher='',
+                authors=[{'name': 'Different Name', 'key': f'/authors/{self.author.olid}'}],
+                identifiers={'olid': ['OL123W']},
+                key='/works/OL123W'
+            )]
             
             mock_ol_views_instance.Work.get.return_value = SimpleNamespace(**work_data)
             mock_ol_controller_instance.Work.get.return_value = SimpleNamespace(**work_data)
@@ -82,7 +85,10 @@ class TestAuthorWorkIntegration:
                     'author_role': 'AUTHOR'
                 }
             )
-            assert response.status_code == 302  # Should redirect to confirm page
+            assert response.status_code == 200
+            content = response.content.decode()
+            assert 'Test Book' in content  # Verify title is on confirmation page
+            assert self.author.primary_name in content  # Verify author name is present
 
             # Step 3: Confirm the work creation with the different name from OpenLibrary
             response = self.client.post(
