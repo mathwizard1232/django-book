@@ -459,10 +459,6 @@ class TestWorkCreation(TestCase):
         request.session = SessionStore()
         request.session.create()
         
-        # Store the original author selection in session
-        request.session['selected_author_olid'] = author.olid
-        request.session['selected_author_name'] = author.primary_name
-        
         # This simulates what happens when OpenLibrary returns results with a different name
         request.POST = QueryDict('', mutable=True)
         request.POST.update({
@@ -471,7 +467,9 @@ class TestWorkCreation(TestCase):
             'author_names': 'Frederick Faust',  # Different name from what we selected
             'author_olids': '',  # OpenLibrary result doesn't include the OLID
             'author_roles': '{"Frederick Faust":"AUTHOR"}',
-            'entry_type': 'SINGLE'
+            'entry_type': 'SINGLE',
+            'selected_author_olid': author.olid,  # Pass through form instead of session
+            'selected_author_name': author.primary_name  # Pass through form instead of session
         })
         
         # Mock the OpenLibrary API response

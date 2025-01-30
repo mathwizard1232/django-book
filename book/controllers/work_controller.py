@@ -115,23 +115,27 @@ class WorkController:
         author_olids = self.request.POST.get('author_olids', '').split(',')
         author_olids = [olid for olid in author_olids if olid]
         
+        logger.info("Processing authors with names: %s and OLIDs: %s", author_names, author_olids)
+        
         # Parse author roles
         try:
             author_roles = json.loads(self.request.POST.get('author_roles', '{}'))
+            logger.info("Author roles: %s", author_roles)
         except json.JSONDecodeError:
             logger.warning("Could not parse author_roles JSON")
             author_roles = {}
             
-        # Check for selected author from form only
+        # Check for selected author from form
         selected_author = None
         selected_olid = self.request.POST.get('selected_author_olid')
         
         if selected_olid:
             selected_author = Author.objects.filter(olid=selected_olid).first()
-            logger.info("Found selected author: %s", selected_author)
-            
+            logger.info("Found selected author: %s with OLID: %s", selected_author, selected_olid)
+        
         # Process each author
-        for olid in author_olids:
+        for olid in author_olids or [None]:  # Handle case where author_olids is empty
+            logger.info("Processing author with OLID: %s", olid)
             author = self._get_or_create_author(
                 olid=olid,
                 selected_author=selected_author,
@@ -139,6 +143,7 @@ class WorkController:
                 author_roles=author_roles,
                 work_data=work_data
             )
+            logger.info("Got author from _get_or_create_author: %s", author)
             
             if author:
                 # Update alternate names from work data if available
@@ -149,12 +154,17 @@ class WorkController:
                         if alt_name not in author.alternate_names:
                             author.alternate_names.append(alt_name)
                     author.save()
-                
+                    logger.info("Updated author alternate names: %s", author.alternate_names)
+
                 if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
                     authors.append(author)
+                    logger.info("Added as author: %s", author)
                 else:
                     editors.append(author)
-                    
+                    logger.info("Added as editor: %s", author)
+        
+        logger.info("Final authors list: %s", authors)
+        logger.info("Final editors list: %s", editors)
         return authors, editors
         
     def _get_or_create_author(self, olid: str, selected_author: Optional[Author], 
