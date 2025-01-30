@@ -71,15 +71,13 @@ class WorkController:
             logger.error("Error details: %s", str(e))
             logger.error("Request POST data: %s", dict(self.request.POST))
             logger.error("Request GET data: %s", dict(self.request.GET))
-            logger.error("Session data: %s", dict(self.request.session))
-            return HttpResponseServerError(f"Error processing book: {str(e)}")
+            raise  # Re-raise the exception to maintain error visibility
         
     def _log_request_context(self) -> None:
         """Log detailed request information"""
         logger.info("=== Book Confirmation Request Details ===")
         logger.info("POST data: %s", dict(self.request.POST))
         logger.info("GET data: %s", dict(self.request.GET))
-        logger.info("Session data: %s", dict(self.request.session))
 
     def _get_work_data(self) -> Optional[Dict]:
         """Fetch and return work data from OpenLibrary"""
