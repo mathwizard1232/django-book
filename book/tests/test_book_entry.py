@@ -794,15 +794,8 @@ class TestPenNameBookEntry:
         assert 'added new work' in book_page.get_success_message().lower()
         assert 'the mustang herder' in book_page.get_success_message().lower()
 
-    @pytest.mark.skip(reason="Need to implement enhanced author selection UI first")
     def test_pen_name_display_format(self, browser, requests_mock):
-        """Test that author display name properly formats pen name while maintaining searchable name.
-        
-        NOTE: This is an initial draft. Before implementing this test fully, we need to:
-        1. Update the author selection UI to show both real name and pen name
-        2. Modify how we handle the author selection to parse the combined name format
-        3. Implement the primary_name formatting logic
-        """
+        """Test that author display name properly formats pen name while maintaining searchable name."""
         
         # Mock OpenLibrary author search response
         mock_author_search = [{
@@ -810,7 +803,8 @@ class TestPenNameBookEntry:
             "name": "Frederick Schiller Faust",
             "alternate_names": ["Max Brand"],
             "birth_date": "1892",
-            "death_date": "1944"
+            "death_date": "1944",
+            "work_count": 100
         }]
         requests_mock.get(
             'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
@@ -830,7 +824,13 @@ class TestPenNameBookEntry:
             json=mock_author_details
         )
 
-        # Mock the work search response
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the name search (which will succeed)
         mock_work_response = {
             'docs': [{
                 'key': '/works/OL123W',
@@ -841,7 +841,7 @@ class TestPenNameBookEntry:
             }]
         }
         requests_mock.get(
-            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            'https://openlibrary.org/search.json?author=Frederick+Schiller+Faust&title=The+Mustang+Herder&limit=2',
             json=mock_work_response
         )
 
@@ -850,10 +850,10 @@ class TestPenNameBookEntry:
             'https://openlibrary.org/works/OL123W.json',
             json={
                 'key': '/works/OL123W',
-                'title': 'Test Book',
-                'authors': [{'key': '/authors/OL123A'}],
+                'title': 'The Mustang Herder',
+                'authors': [{'key': '/authors/OL10356294A'}],
                 'type': {'key': '/type/work'},
-                'first_publish_date': '2023'
+                'first_publish_date': '1923'
             }
         )
 
@@ -861,12 +861,22 @@ class TestPenNameBookEntry:
         author_page = AuthorPage(browser)
         author_page.navigate()
         author_page.search_author("Max Brand")
-        author_page.select_openlibrary_author("Frederick Schiller Faust [also: Max Brand]")
+        
+        # Select author with combined name format
+        author_page.select_openlibrary_author("Frederick Schiller Faust (100 works)")
 
         # Handle title entry
         book_page = BookPage(browser)
         book_page.enter_title("The Mustang Herder")
         book_page.submit_title_form()
+
+        # Verify the confirmation page shows the formatted name
+        content = browser.page_source
+        print("\nPage content:")
+        print(content)
+        assert "Frederick 'Max Brand' Faust" in content
+        assert "The Mustang Herder" in content
+        
         book_page.confirm_title()
 
         # Verify author was created with correct name formatting
@@ -876,8 +886,9 @@ class TestPenNameBookEntry:
         assert "Max Brand" in author.alternate_names
         assert "George Owen Baxter" in author.alternate_names
 
-        # Verify the display shows the formatted name
-        assert author.display_name() == "Frederick 'Max Brand' Faust (1892-1944)"
+        # Verify dates were saved
+        assert author.birth_date == "29 May 1892"
+        assert author.death_date == "12 May 1944"
 
     def test_pen_name_confirmation_display(self, browser, requests_mock):
         """Test that pen name is properly formatted on confirmation page and saved correctly."""
