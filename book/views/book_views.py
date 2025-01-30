@@ -150,13 +150,14 @@ def confirm_book(request):
     else:
         return _handle_book_search(request)
 
-def _format_pen_name(real_name, pen_name, alternate_names):
+def _format_pen_name(real_name, pen_name, alternate_names, force_format=False):
     """Format author name to include pen name if appropriate.
     
     Args:
         real_name (str): The author's real name (e.g., "Frederick Schiller Faust")
         pen_name (str): The author's pen name (e.g., "Max Brand")
         alternate_names (list): List of alternate names to check against
+        force_format (bool): If True, always format with pen name regardless of alternate names
         
     Returns:
         str: Formatted name with pen name in quotes if appropriate, or original name
@@ -166,11 +167,11 @@ def _format_pen_name(real_name, pen_name, alternate_names):
     real_first = name_parts[0]
     real_last = name_parts[-1]
     
-    # Check if components of real name appear in alternate names
-    for alt_name in alternate_names:
-        if real_first.lower() in alt_name.lower() and real_last.lower() in alt_name.lower():
-            # We found the real name in alternate names, format with pen name
-            return f"{real_first} '{pen_name}' {real_last}"
+    # Check if we should force format or if components of real name appear in alternate names
+    if force_format or any(real_first.lower() in alt_name.lower() and real_last.lower() in alt_name.lower() 
+                          for alt_name in alternate_names):
+        # Format with pen name
+        return f"{real_first} '{pen_name}' {real_last}"
     
     return real_name
 
@@ -359,9 +360,9 @@ def _handle_book_confirmation(request):
                             logger.info("Alternate names: %s", alternate_names)
                             # Check if our local author's name appears in alternate names
                             local_name = local_author.search_name.lower()
-                            alt_names_lower = [name.lower() for name in alternate_names]
+                            alt_names_lower = [name.lower().replace(',', '') for name in alternate_names]
                             logger.info("Checking if %s appears in %s", local_name, alt_names_lower)
-                            if local_name in alt_names_lower or any(local_name in alt.lower() for alt in alternate_names):
+                            if local_name in alt_names_lower or any(local_name in alt.lower().replace(',', '') for alt in alternate_names):
                                 logger.info("Found name match!")
                                 # This is the same author with a different OLID
                                 real_name = author_details.get('personal_name') or author_details.get('name')
@@ -379,6 +380,8 @@ def _handle_book_confirmation(request):
                                     local_author.olid = olid
                                     local_author.primary_name = formatted_name
                                     local_author.alternate_names = alternate_names
+                                    local_author.birth_date = author_details.get('birth_date')
+                                    local_author.death_date = author_details.get('death_date')
                                     local_author.save()
                                     author = local_author
                                     break
@@ -637,8 +640,10 @@ def _handle_book_search(request):
     # Initialize form_args
     form_args = {}
     
-    # Get search parameters
-    params = request.GET
+    # Get search parameters from GET or POST
+    params = request.GET.copy()
+    params.update(request.POST)
+    
     if 'title' not in params:
         return HttpResponseBadRequest('Title required')
     
@@ -722,9 +727,85 @@ def _handle_book_search(request):
         
         if result.authors:
             logger.info("Raw author data from result: %s", result.authors)
+            logger.info("Full result data: %s", vars(result))
             for author in result.authors:
                 logger.info("Processing author: %s", author)
                 author_name = author['name']
+                
+                # If we have a name mismatch with the search author, try to fetch full details
+                if form_args.get('author_name') and author_name != form_args['author_name']:
+                    logger.info("Name mismatch - search: %s, result: %s", form_args['author_name'], author_name)
+                    # Try to get full author details using the work's author OLID
+                    if 'olid' in author:
+                        try:
+                            author_details = ol.Author.get(author['olid'])
+                            logger.info("Found work author details: %s", author_details)
+                            # Add these details to our result for name matching
+                            result_dict = {
+                                'author_alternative_name': author_details.get('alternate_names', []),
+                                'author_key': [author['olid']],
+                                'author_name': [author_name],
+                            }
+                            if _author_name_matches(author_name, local_author, result_dict):
+                                logger.info("Found matching author through alternate names")
+                                
+                                # Get work counts from OpenLibrary for both authors
+                                new_work_count = author_details.get('work_count', 0)
+                                try:
+                                    current_author_details = ol.Author.get(local_author.olid)
+                                    current_work_count = current_author_details.get('work_count', 0)
+                                except Exception as e:
+                                    logger.warning("Error getting current author details: %s", e)
+                                    current_work_count = 0
+                                    
+                                logger.info("Work counts - new author: %d, current author: %d", 
+                                          new_work_count, current_work_count)
+                                
+                                # If new author has significantly more works, merge
+                                if new_work_count > current_work_count * 10:
+                                    logger.info("New author has significantly more works - merging")
+                                    
+                                    # Store old OLID as alternate
+                                    if not local_author.alternate_olids:
+                                        local_author.alternate_olids = []
+                                    local_author.alternate_olids.append(local_author.olid)
+                                    
+                                    # Update primary OLID
+                                    local_author.olid = author['olid']
+                                    
+                                    # Format combined name
+                                    real_name = author_details.get('personal_name') or author_details.get('name')
+                                    pen_name = local_author.search_name.title()
+                                    formatted_name = _format_pen_name(
+                                        real_name=real_name,
+                                        pen_name=pen_name,
+                                        alternate_names=author_details.get('alternate_names', []),
+                                        force_format=True  # Force pen name format for merges
+                                    )
+                                    
+                                    # Update names
+                                    local_author.primary_name = formatted_name
+                                    # Keep the pen name as search name
+                                    local_author.search_name = pen_name.lower()
+                                    
+                                    # Update biographical details
+                                    local_author.birth_date = author_details.get('birth_date')
+                                    local_author.death_date = author_details.get('death_date')
+                                    
+                                    # Update alternate names
+                                    if not local_author.alternate_names:
+                                        local_author.alternate_names = []
+                                    local_author.alternate_names.extend(author_details.get('alternate_names', []))
+                                    
+                                    local_author.save()
+                                    logger.info("Updated author details - primary: %s, search: %s, alternates: %s",
+                                              local_author.primary_name, local_author.search_name, 
+                                              local_author.alternate_names)
+                                
+                                author_name = local_author.primary_name
+                                author_olid = local_author.olid
+                        except Exception as e:
+                            logger.warning("Error getting work author details: %s", e)
                 
                 # Convert result to dict for author name matching
                 result_dict = _work_to_dict(result)
@@ -1153,15 +1234,20 @@ def _handle_collection_confirmation(request):
 
 def _author_name_matches(name, local_author, result):
     """Check if an author name matches a local author, including alternate names"""
-    # Normalize names for comparison
-    name = name.lower()
-    local_name = local_author.primary_name.lower()
+    logger.info("=== Checking Author Name Match ===")
+    logger.info("Comparing name: '%s' with local author: '%s'", name, local_author.primary_name)
+    logger.info("Local author alternate names: %s", local_author.alternate_names)
     
-    # Direct match
-    if name == local_name:
-        return True
-        
-    # Check result's alternate names against local primary name
+    # Normalize names for comparison - remove commas and convert to lowercase
+    def normalize_name(n):
+        # Split name into parts and try both orders
+        parts = n.lower().replace(',', '').strip().split()
+        return [' '.join(parts), ' '.join(reversed(parts))]
+    
+    name_variants = normalize_name(local_author.primary_name)  # Try both orders of local name
+    logger.info("Looking for name variants: %s", name_variants)
+    
+    # Check result's alternate names against local primary name variants
     alt_names = []
     if isinstance(result, dict):  # Handle both dict and OpenLibrary result objects
         if 'author_alternative_name' in result:
@@ -1169,25 +1255,26 @@ def _author_name_matches(name, local_author, result):
         elif 'author_alternative_names' in result:  # Handle possible alternate key
             alt_names.extend(result['author_alternative_names'])
     
-    alt_names = [alt.lower() for alt in alt_names]
-    if local_name in alt_names:
-        return True
-            
-    # Check local alternate names against result name
-    if local_author.alternate_names:
-        local_alts = [alt.lower() for alt in local_author.alternate_names]
-        if name in local_alts:
+    logger.info("Result alternate names: %s", alt_names)
+    alt_names = [alt.lower().replace(',', '').strip() for alt in alt_names]
+    logger.info("Normalized alternate names: %s", alt_names)
+    
+    # Check if any variant of the local name appears in alternate names
+    for variant in name_variants:
+        if variant in alt_names:
+            logger.info("Found matching name variant '%s' in alternate names!", variant)
             return True
-
+            
     # Check if the OpenLibrary author has the same OLID
     if isinstance(result, dict):
         ol_author_id = None
         if isinstance(result.get('author_key'), list) and result['author_key']:
             ol_author_id = result['author_key'][0]
-        elif isinstance(result.get('key'), str):
-            ol_author_id = result['key'].replace('/authors/', '')
         
+        logger.info("Comparing OLIDs - result: %s, local: %s", ol_author_id, local_author.olid)
         if ol_author_id and ol_author_id == local_author.olid:
+            logger.info("OLID match found!")
             return True
             
+    logger.info("No matches found")
     return False

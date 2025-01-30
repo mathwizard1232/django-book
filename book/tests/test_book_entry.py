@@ -886,7 +886,7 @@ class TestPenNameBookEntry:
         mock_author_search = [{
             'key': '/authors/OL10352592A',  # Different OLID from what we'll get later
             'name': 'Max Brand',
-            'work_count': 1636,
+            'work_count': 10,  # Lower work count
             'works': ["Gunman's Reckoning"],
             'subjects': ['Fiction, westerns']
         }]
@@ -904,44 +904,15 @@ class TestPenNameBookEntry:
         mock_initial_author = {
             'key': '/authors/OL10352592A',
             'name': 'Max Brand',
-            'work_count': 1636
+            'work_count': 10  # Lower work count
         }
         requests_mock.get(
             'https://openlibrary.org/authors/OL10352592A.json',
             json=mock_initial_author
         )
 
-        # Mock the work search response - note this returns a different author OLID
-        mock_work_response = {
-            'docs': [{
-                'key': '/works/OL14848834W',
-                'title': 'The Mustang Herder',
-                'author_name': ['Frederick Faust'],  # Different name
-                'author_key': ['OL2748402A'],       # Different OLID
-                'first_publish_year': 1994
-            }]
-        }
-        
-        # Mock the OLID search (which will fail)
-        requests_mock.get(
-            'https://openlibrary.org/search.json?author=OL10352592A&title=The+Mustang+Herder&limit=2',
-            json={'docs': []}
-        )
-
-        # Mock the full name search (which will fail)
-        requests_mock.get(
-            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
-            json={'docs': []}
-        )
-
-        # Mock the last name search (which will succeed)
-        requests_mock.get(
-            'https://openlibrary.org/search.json?author=Brand&title=The+Mustang+Herder&limit=2',
-            json=mock_work_response
-        )
-
         # Mock the work's author details that will be fetched during confirmation
-        mock_author_details = {
+        mock_work_author_details = {
             'key': '/authors/OL2748402A',
             'name': 'Frederick Faust',
             'personal_name': 'Frederick Schiller Faust',
@@ -953,11 +924,34 @@ class TestPenNameBookEntry:
             ],
             'birth_date': '29 May 1892',
             'death_date': '12 May 1944',
-            'bio': 'American author best known by his pen name Max Brand'
+            'bio': 'American author best known by his pen name Max Brand',
+            'work_count': 1000  # Much higher work count
         }
         requests_mock.get(
             'https://openlibrary.org/authors/OL2748402A.json',
-            json=mock_author_details
+            json=mock_work_author_details
+        )
+
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10352592A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the name search (which will succeed)
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Frederick Faust'],
+                'author_key': ['OL2748402A'],  # This is the more complete author record
+                'first_publish_year': 1923,
+                'publisher': ['G.P. Putnam\'s Sons']
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
         )
 
         # Mock the work details API
@@ -965,10 +959,10 @@ class TestPenNameBookEntry:
             'https://openlibrary.org/works/OL123W.json',
             json={
                 'key': '/works/OL123W',
-                'title': 'Test Book',
-                'authors': [{'key': '/authors/OL123A'}],
+                'title': 'The Mustang Herder',
+                'authors': [{'key': '/authors/OL2748402A'}],
                 'type': {'key': '/type/work'},
-                'first_publish_date': '2023'
+                'first_publish_date': '1923'
             }
         )
 
@@ -976,24 +970,35 @@ class TestPenNameBookEntry:
         author_page = AuthorPage(browser)
         author_page.navigate()
         author_page.search_author("Max Brand")
-
+        
         # Instead of selecting from dropdown, submit the form to go to confirmation page
         search_form = browser.find_element(By.TAG_NAME, 'form')
         search_form.submit()
-
+        
         # On confirmation page, verify the author details are displayed
         content = browser.page_source
         assert "Max Brand" in content
-        assert "(1636 works)" in content
+        assert "(10 works)" in content
         
         # Confirm the author
         author_page.confirm_new_author()
-
+        
+        # Add assertions to verify author creation
+        author = Author.objects.filter(olid="OL10352592A").first()
+        assert author is not None, "Author should be created after confirmation"
+        assert author.primary_name == "Max Brand"
+        assert author.search_name == "Max Brand"
+        
         # Handle title entry
         book_page = BookPage(browser)
         book_page.enter_title("The Mustang Herder")
         book_page.submit_title_form()
 
+        # Add debug output before the assertion
+        print("\n=== Page Content Before Assertion ===")
+        print(browser.page_source)
+        print("=====================================")
+        
         # Verify the confirmation page shows the formatted name
         content = browser.page_source
         assert "Frederick 'Max Brand' Faust" in content

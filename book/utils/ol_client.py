@@ -90,7 +90,13 @@ class CachedOpenLibrary(OpenLibrary):
                             work.title = doc['title']
                             work.publish_date = doc.get('first_publish_year')
                             work.publisher = doc.get('publisher', [''])[0] if doc.get('publisher') else ''
-                            work.authors = [{'name': name} for name in doc.get('author_name', [])]
+                            # Include author keys when creating author dictionaries
+                            work.authors = []
+                            for i, name in enumerate(doc.get('author_name', [])):
+                                author = {'name': name}
+                                if 'author_key' in doc and i < len(doc['author_key']):
+                                    author['olid'] = doc['author_key'][i]
+                                work.authors.append(author)
                             work.identifiers = {'olid': [doc['olid']]} if 'olid' in doc else {'olid': [doc['key'].split('/')[-1]]}
                             works.append(work)
                         logger.info("Multiple results found in OpenLibrary response")
@@ -102,7 +108,13 @@ class CachedOpenLibrary(OpenLibrary):
                         work.title = doc['title']
                         work.publish_date = doc.get('first_publish_year')
                         work.publisher = doc.get('publisher', [''])[0] if doc.get('publisher') else ''
-                        work.authors = [{'name': name} for name in doc.get('author_name', [])]
+                        # Include author keys when creating author dictionaries
+                        work.authors = []
+                        for i, name in enumerate(doc.get('author_name', [])):
+                            author = {'name': name}
+                            if 'author_key' in doc and i < len(doc['author_key']):
+                                author['olid'] = doc['author_key'][i]
+                            work.authors.append(author)
                         work.identifiers = {'olid': [doc['olid']]} if 'olid' in doc else {'olid': [doc['key'].split('/')[-1]]}
                         return work
                 except Exception as e:
