@@ -92,51 +92,60 @@
             formatResult: function(item) {
                 console.log('Raw item in formatResult:', item);
                 
-                // Handle string format with custom delimiter
-                if (typeof item === 'string' && item.includes(':::')) {
-                    let [displayName, olid] = item.split(':::').map(s => s.trim());
-                    
-                    // Build HTML
-                    let html = `<div class="author-result">
-                        <div class="author-name">${displayName}</div>
-                    </div>`;
-
-                    return {
-                        value: item,
-                        text: displayName,
-                        html: html
-                    };
-                }
+                // Get the current search term from the input field
+                const searchTerm = $('.basicAutoComplete').val();
                 
                 // Handle OpenLibrary response format
                 if (typeof item === 'object' && item.key) {
                     let displayName = item.name;
                     let olid = item.key.replace('/authors/', '');
                     
+                    // Add work count if available
+                    if (item.work_count) {
+                        displayName += ` (${item.work_count} works)`;
+                    }
+                    
                     // Add birth/death dates if available
-                    if (item.birth_date && item.death_date) {
+                    else if (item.birth_date && item.death_date) {
                         displayName += ` (${item.birth_date}-${item.death_date})`;
                     }
                     
                     // Handle pen names
                     let penName = '';
                     if (item.alternate_names) {
-                        let pseudonyms = item.alternate_names.filter(name => name.includes('pseud.'));
+                        let pseudonyms = item.alternate_names.filter(name => 
+                            name.toLowerCase() === searchTerm.toLowerCase() ||
+                            name.replace(' (pseud.)', '').toLowerCase() === searchTerm.toLowerCase()
+                        );
                         if (pseudonyms.length > 0) {
                             penName = pseudonyms[0].replace(' (pseud.)', '');
+                            displayName += ` [also: ${penName}]`;
                         }
                     }
 
-                    // Build HTML
+                    // Build HTML for display
                     let html = `<div class="author-result">
                         <div class="author-name">${displayName}</div>
                         ${penName ? `<div class="author-pen-name text-muted small">Also known as: ${penName}</div>` : ''}
                     </div>`;
 
+                    // Create a value that includes both the display name and search term
+                    const value = `${displayName} ::: ${olid} ::: ${searchTerm}`;
+
                     return {
-                        value: item,
-                        text: displayName + (penName ? `\n${penName}` : ''),
+                        value: value,
+                        text: displayName,
                         html: html
+                    };
+                }
+                
+                // Handle existing string format with custom delimiter
+                if (typeof item === 'string' && item.includes(':::')) {
+                    let [displayName, olid, originalSearch] = item.split(':::').map(s => s.trim());
+                    return {
+                        value: item,  // Keep the full value with search term
+                        text: displayName,
+                        html: `<div class="author-result"><div class="author-name">${displayName}</div></div>`
                     };
                 }
                 

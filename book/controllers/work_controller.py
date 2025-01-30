@@ -176,46 +176,80 @@ class WorkController:
                              author_names: List[str], author_roles: Dict[str, str],
                              work_data: Dict) -> Optional[Author]:
         """Get existing author or create new one with proper name formatting"""
+        logger.info("=== Starting _get_or_create_author ===")
+        logger.info("Input - OLID: %s, Names: %s, Roles: %s", olid, author_names, author_roles)
+        
         # If we have a selected author, update and return it
         if selected_author:
+            logger.info("Using selected author: %s", selected_author.primary_name)
             try:
                 author_details = self.ol_client.Author.get(olid)
                 if author_details:
+                    logger.info("Updating selected author with details: %s", author_details)
                     self._update_author_details(selected_author, author_details)
                 return selected_author
             except Exception as e:
                 logger.warning(f"Error getting author details: {e}")
                 return selected_author
                 
-        # Try to find existing author
+        # Try to find existing author by OLID first
         author = Author.objects.filter(olid=olid).first()
         if author:
+            logger.info("Found author by OLID: %s", author.primary_name)
             return author
-            
-        # Try to match by alternate names in work data
-        if work_data and hasattr(work_data, 'author_alternative_name'):
-            alt_names = [name.lower() for name in work_data.author_alternative_name]
+
+        # Try to match by name or alternate names
+        for name in author_names:
+            name_lower = name.lower()
+            logger.info("Checking for name match: %s", name)
             for local_author in Author.objects.all():
-                if local_author.search_name in alt_names:
-                    logger.info("Found matching local author by alternate name: %s", local_author)
-                    return local_author
+                logger.info("Comparing with local author: %s (search_name: %s, alternates: %s)", 
+                           local_author.primary_name, local_author.search_name, 
+                           local_author.alternate_names)
+                
+                # Check primary name and alternate names
+                if (local_author.search_name == name_lower):
+                    logger.info("Found match by primary name")
+                    matched = True
+                elif (local_author.alternate_names and 
+                      name_lower in [alt.lower() for alt in local_author.alternate_names]):
+                    logger.info("Found match by alternate name")
+                    matched = True
+                else:
+                    matched = False
                     
-        # Create new author if needed
+                if matched:
+                    logger.info("Found author match: %s matches %s", name, local_author.primary_name)
+                    try:
+                        author_details = self.ol_client.Author.get(olid)
+                        if author_details:
+                            logger.info("Updating matched author with details: %s", author_details)
+                            self._update_author_details(local_author, author_details)
+                    except Exception as e:
+                        logger.warning(f"Error updating author details: {e}")
+                    return local_author
+
+        # Create new author if no match found
+        logger.info("No existing author found, attempting creation")
         for name in author_names:
             if author_roles.get(name) == "AUTHOR":
+                logger.info("Creating new author with name: %s", name)
                 try:
                     author_details = self.ol_client.Author.get(olid)
                     if author_details:
+                        logger.info("Creating author with details: %s", author_details)
                         return self._create_author_with_details(name, olid, author_details)
                 except Exception as e:
                     logger.warning(f"Error getting author details: {e}")
                     # Fall back to basic author creation
+                    logger.info("Falling back to basic author creation")
                     return Author.objects.create(
                         primary_name=name,
                         search_name=name.lower(),
                         olid=olid
                     )
-                    
+
+        logger.info("No author created - returning None")
         return None
         
     def _update_author_details(self, author: Author, author_details: Dict) -> None:
@@ -224,51 +258,61 @@ class WorkController:
         real_name = author_details.get('personal_name') or author_details.get('name')
         
         if real_name:
-            formatted_name = self._format_pen_name(
-                real_name=real_name,
-                pen_name=author.search_name.title(),
-                alternate_names=alternate_names
-            )
+            # Use the current primary name as the pen name
+            pen_name = author.primary_name
+            # Keep the original search name
+            search_name = author.search_name
+            # Check if current name is in alternate names list
+            if pen_name not in alternate_names:
+                alternate_names.append(pen_name)
+            
+            formatted_name = self._format_pen_name(real_name, pen_name, alternate_names)
+            
             author.primary_name = formatted_name
+            author.search_name = search_name  # Keep existing search name
             author.alternate_names = alternate_names
             author.save()
-            
-    def _create_author_with_details(self, name: str, olid: str, 
-                                  author_details: Dict) -> Author:
+        
+    def _create_author_with_details(self, name: str, olid: str, author_details: Dict) -> Author:
         """Create new author with OpenLibrary details"""
         alternate_names = author_details.get('alternate_names', [])
         real_name = author_details.get('personal_name') or author_details.get('name')
         
-        if real_name:
-            formatted_name = self._format_pen_name(
-                real_name=real_name,
-                pen_name=name,
-                alternate_names=alternate_names
-            )
+        if real_name and real_name != name:  # If we have a real name different from search name
+            # The searched name (name) is the pen name since user searched for it
+            pen_name = name
+            # Add pen name to alternate names if not present
+            if pen_name not in alternate_names:
+                alternate_names.append(pen_name)
+            
+            formatted_name = self._format_pen_name(real_name, pen_name, alternate_names)
         else:
             formatted_name = name
             
         return Author.objects.create(
             primary_name=formatted_name,
-            search_name=name.lower(),
+            search_name=name.lower(),  # Use the searched name for search
             olid=olid,
             alternate_names=alternate_names
         )
         
-    def _format_pen_name(self, real_name: str, pen_name: str, 
-                        alternate_names: List[str]) -> str:
+    def _format_pen_name(self, real_name: str, pen_name: str, alternate_names: List[str]) -> str:
         """Format author name to include pen name if appropriate"""
-        # Split names into components and just use first and last
-        name_parts = real_name.split()
-        real_first = name_parts[0]
-        real_last = name_parts[-1]
+        logger.info(f"Formatting pen name - real: {real_name}, pen: {pen_name}, alternates: {alternate_names}")
         
-        # Check if components of real name appear in alternate names
-        for alt_name in alternate_names:
-            if real_first.lower() in alt_name.lower() and real_last.lower() in alt_name.lower():
-                return f"{real_first} '{pen_name}' {real_last}"
-                
-        return real_name 
+        # If the pen name is in alternate names, it confirms it's a valid pen name
+        if pen_name.lower() in [alt.lower() for alt in alternate_names]:
+            # Split real name into components
+            name_parts = real_name.split()
+            if len(name_parts) >= 2:
+                real_first = name_parts[0]
+                real_last = name_parts[-1]
+                formatted = f"{real_first} '{pen_name}' {real_last}"
+                logger.info(f"Formatted with pen name: {formatted}")
+                return formatted
+        
+        logger.info(f"Using real name: {real_name}")
+        return real_name
 
     def _create_or_get_work(self, authors: List[Author], editors: List[Author]) -> Work:
         """Create new work or get existing one and update its relationships"""

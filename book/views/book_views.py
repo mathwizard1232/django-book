@@ -305,6 +305,21 @@ def _handle_book_search(request):
                             if _author_name_matches(author_name, local_author, result_dict):
                                 logger.info("Found matching author through alternate names")
                                 
+                                # Format combined name
+                                real_name = author_details.get('personal_name') or author_details.get('name')
+                                pen_name = local_author.search_name.title()
+                                formatted_name = _format_pen_name(
+                                    real_name=real_name,
+                                    pen_name=pen_name,
+                                    alternate_names=author_details.get('alternate_names', []),
+                                    force_format=True  # Force pen name format when we find a match
+                                )
+                                
+                                # Update names
+                                local_author.primary_name = formatted_name
+                                # Keep the pen name as search name
+                                local_author.search_name = pen_name.lower()
+                                
                                 # Get work counts from OpenLibrary for both authors
                                 new_work_count = author_details.get('work_count', 0)
                                 try:
@@ -317,7 +332,7 @@ def _handle_book_search(request):
                                 logger.info("Work counts - new author: %d, current author: %d", 
                                           new_work_count, current_work_count)
                                 
-                                # If new author has significantly more works, merge
+                                # If new author has significantly more works, merge additional details
                                 if new_work_count > current_work_count * 10:
                                     logger.info("New author has significantly more works - merging")
                                     
@@ -329,21 +344,6 @@ def _handle_book_search(request):
                                     # Update primary OLID
                                     local_author.olid = author['olid']
                                     
-                                    # Format combined name
-                                    real_name = author_details.get('personal_name') or author_details.get('name')
-                                    pen_name = local_author.search_name.title()
-                                    formatted_name = _format_pen_name(
-                                        real_name=real_name,
-                                        pen_name=pen_name,
-                                        alternate_names=author_details.get('alternate_names', []),
-                                        force_format=True  # Force pen name format for merges
-                                    )
-                                    
-                                    # Update names
-                                    local_author.primary_name = formatted_name
-                                    # Keep the pen name as search name
-                                    local_author.search_name = pen_name.lower()
-                                    
                                     # Update biographical details
                                     local_author.birth_date = author_details.get('birth_date')
                                     local_author.death_date = author_details.get('death_date')
@@ -352,11 +352,11 @@ def _handle_book_search(request):
                                     if not local_author.alternate_names:
                                         local_author.alternate_names = []
                                     local_author.alternate_names.extend(author_details.get('alternate_names', []))
-                                    
-                                    local_author.save()
-                                    logger.info("Updated author details - primary: %s, search: %s, alternates: %s",
-                                              local_author.primary_name, local_author.search_name, 
-                                              local_author.alternate_names)
+                                
+                                local_author.save()
+                                logger.info("Updated author details - primary: %s, search: %s, alternates: %s",
+                                          local_author.primary_name, local_author.search_name, 
+                                          local_author.alternate_names)
                                 
                                 author_name = local_author.primary_name
                                 author_olid = local_author.olid

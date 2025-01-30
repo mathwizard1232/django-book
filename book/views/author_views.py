@@ -29,11 +29,28 @@ def get_author(request):
                 if k.startswith('first_work_')
             }
             
-            # Check if this is an autocomplete result with DIVIDER
+            # Check if this is an OpenLibrary result with work count
+            if ' (' in name:
+                display_name = name.split(' (')[0]  # Remove work count
+                
+                # Get the original search term from the form
+                search_term = form.data.get('author_name')  # This gets what user typed
+                if search_term and ' (' in search_term:
+                    search_term = search_term.split(' (')[0]  # Clean up search term too
+                
+                # Add search term to redirect params if it differs from display name
+                if search_term and search_term.lower() != display_name.lower():
+                    redirect_params = {
+                        'author_name': display_name,
+                        'author_role': author_role,
+                        'search_term': search_term,
+                        **first_work_params
+                    }
+                    return HttpResponseRedirect(f'/title.html?{urlencode(redirect_params, doseq=True)}')
+            
+            # Check if this is a local author result with DIVIDER
             if DIVIDER in name:
-                # This is a local author result, extract name and olid
                 name, olid = name.split(DIVIDER)
-                # Add first work params to redirect URL
                 redirect_params = {
                     'author_olid': olid,
                     'author_name': name,
@@ -42,7 +59,7 @@ def get_author(request):
                 }
                 return HttpResponseRedirect(f'/title.html?{urlencode(redirect_params, doseq=True)}')
             
-            # For OpenLibrary results, redirect to confirmation with first work params
+            # For other cases, redirect to confirmation
             redirect_params = {
                 'author_name': name,
                 'author_role': author_role,
