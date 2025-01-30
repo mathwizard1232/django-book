@@ -579,7 +579,7 @@ class TestPenNameBookEntry:
         # Verify author was created with correct name
         author = work.authors.first()
         assert author is not None
-        assert author.primary_name == "Max Brand"
+        assert author.search_name == "max brand"
         assert author.olid == "OL10356294A"
 
     def test_book_search_name_to_lastname_fallback(self, browser, requests_mock):
