@@ -765,18 +765,6 @@ class TestPenNameBookEntry:
             json=mock_work_response
         )
 
-        # Mock the work details API
-        requests_mock.get(
-            'https://openlibrary.org/works/OL123W.json',
-            json={
-                'key': '/works/OL123W',
-                'title': 'Test Book',
-                'authors': [{'key': '/authors/OL123A'}],
-                'type': {'key': '/type/work'},
-                'first_publish_date': '2023'
-            }
-        )
-
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()

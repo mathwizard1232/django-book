@@ -22,6 +22,7 @@ class CachedOpenLibrary(OpenLibrary):
             cached_response = OpenLibraryCache.get_cached_response(url)
             if cached_response:
                 logger.debug(f"Cache hit for {url}")
+                logger.info("Cached response data: %s", cached_response)
                 return type('Response', (), {
                     'json': lambda: cached_response,
                     'raise_for_status': lambda: None,
@@ -38,6 +39,7 @@ class CachedOpenLibrary(OpenLibrary):
             if method.lower() == 'get' and response.status_code == 200:
                 try:
                     response_data = response.json()
+                    logger.info("Raw response data before caching: %s", response_data)
                     OpenLibraryCache.cache_response(url, response_data)
                     logger.debug(f"Cached response for {url}")
                 except Exception as e:

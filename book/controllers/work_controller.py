@@ -147,14 +147,19 @@ class WorkController:
             
             if author:
                 # Update alternate names from work data if available
+                logger.info("Checking work_data for alternate names: %s", work_data)
                 if hasattr(work_data, 'author_alternative_name'):
+                    logger.info("Found author_alternative_name: %s", work_data.author_alternative_name)
                     if not author.alternate_names:
                         author.alternate_names = []
                     for alt_name in work_data.author_alternative_name:
                         if alt_name not in author.alternate_names:
                             author.alternate_names.append(alt_name)
+                            logger.info("Added alternate name: %s", alt_name)
                     author.save()
                     logger.info("Updated author alternate names: %s", author.alternate_names)
+                else:
+                    logger.info("No author_alternative_name found in work_data")
 
                 if author_roles.get(author.primary_name, 'AUTHOR') == 'AUTHOR':
                     authors.append(author)
