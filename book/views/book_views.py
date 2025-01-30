@@ -732,6 +732,12 @@ def _handle_book_search(request):
                 logger.info("Processing author: %s", author)
                 author_name = author['name']
                 
+                # If this is our local author by OLID, use their name
+                if local_author and author.get('key', '').endswith(local_author.olid):
+                    logger.info("Using local author name %s instead of %s (matched by OLID)", 
+                              local_author.primary_name, author_name)
+                    author_name = local_author.primary_name
+                
                 # If we have a name mismatch with the search author, try to fetch full details
                 if form_args.get('author_name') and author_name != form_args['author_name']:
                     logger.info("Name mismatch - search: %s, result: %s", form_args['author_name'], author_name)
@@ -815,8 +821,14 @@ def _handle_book_search(request):
                     author_olid = local_author.olid
                     # Update the author name to match our local author
                     author_name = local_author.primary_name
+                    logger.info("Matched local author by name - using primary name: %s, olid: %s", author_name, author_olid)
                 elif form_args.get('author_olid') and author_name == form_args.get('author_name', '').split(' (')[0]:
                     author_olid = form_args['author_olid']
+                    # Also use the local author's primary name here
+                    local_author = Author.objects.filter(olid=author_olid).first()
+                    if local_author:
+                        author_name = local_author.primary_name
+                        logger.info("Matched local author by OLID - using primary name: %s, olid: %s", author_name, author_olid)
                 else:
                     # Get author OLID from author_key if available
                     ol_author_id = None

@@ -86,7 +86,13 @@ class TestAuthorWorkIntegration:
                 }
             )
             assert response.status_code == 200
+            
+            # Debug output
+            print("\n=== Page Content After Title Search ===")
             content = response.content.decode()
+            print(content)
+            print("\n=== End Page Content ===")
+            
             assert 'Test Book' in content  # Verify title is on confirmation page
             assert self.author.primary_name in content  # Verify author name is present
 
