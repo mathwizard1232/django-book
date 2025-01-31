@@ -33,10 +33,16 @@ def get_author(request):
             if ' (' in name:
                 display_name = name.split(' (')[0]  # Remove work count
                 
-                # Get the original search term from the form or POST data
-                search_term = form.data.get('author_name') or request.POST.get('search_term')
+                # Get the original search term from the POST data or form
+                search_term = request.POST.get('search_term') or form.data.get('author_name')
                 if search_term and ' (' in search_term:
                     search_term = search_term.split(' (')[0]  # Clean up search term too
+                
+                logger.info("=== Search Term Processing ===")
+                logger.info("Form data: %s", dict(form.data))
+                logger.info("POST data: %s", dict(request.POST))
+                logger.info("Initial search term: %s", search_term)
+                logger.info("Cleaned search term: %s", search_term)
                 
                 # Add search term to redirect params if it differs from display name
                 if search_term and search_term.lower() != display_name.lower():
@@ -44,6 +50,11 @@ def get_author(request):
                     author_olid = None
                     if DIVIDER in form.cleaned_data['author_name']:
                         _, author_olid = form.cleaned_data['author_name'].split(DIVIDER)
+                    
+                    logger.info("=== Redirect Params Debug ===")
+                    logger.info("Display name: %s", display_name)
+                    logger.info("Search term: %s", search_term)
+                    logger.info("Author OLID: %s", author_olid)
                     
                     redirect_params = {
                         'author_name': display_name,
@@ -54,6 +65,7 @@ def get_author(request):
                     if author_olid:
                         redirect_params['author_olid'] = author_olid
                     
+                    logger.info("Final redirect params: %s", redirect_params)
                     return HttpResponseRedirect(f'/title.html?{urlencode(redirect_params, doseq=True)}')
             
             # Check if this is a local author result with DIVIDER

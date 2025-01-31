@@ -209,6 +209,34 @@ def _handle_book_search(request):
         logger.info("Found local author: %s with OLID %s", 
                    local_author.primary_name if local_author else None, 
                    form_args['author_olid'])
+        
+        # Create author if we have an OLID but no local author
+        if not local_author:
+            # Fetch full author details from OpenLibrary
+            ol = CachedOpenLibrary()
+            author_details = ol.Author.get(form_args['author_olid'])
+            logger.info("Creating author from details: %s", author_details)
+            
+            # Get the search term if available
+            search_term = params.get('search_term')
+            real_name = author_details.get('personal_name') or author_details.get('name')
+            
+            # If search term matches an alternate name, format with pen name
+            if search_term and search_term in author_details.get('alternate_names', []):
+                primary_name = f"{real_name.split()[0]} '{search_term}' {real_name.split()[-1]}"
+            else:
+                primary_name = real_name
+            
+            # Create author with complete information
+            local_author = Author.objects.create(
+                olid=form_args['author_olid'],
+                primary_name=primary_name,
+                search_name=(search_term or real_name).lower(),
+                birth_date=author_details.get('birth_date'),
+                death_date=author_details.get('death_date'),
+                alternate_names=author_details.get('alternate_names', [])
+            )
+            logger.info("Created author: %s", local_author.primary_name)
     
     context = {'title_url': "title.html?" + urllib.parse.urlencode(form_args)}
 
@@ -307,13 +335,23 @@ def _handle_book_search(request):
                                 
                                 # Format combined name
                                 real_name = author_details.get('personal_name') or author_details.get('name')
-                                pen_name = local_author.search_name.title()
+                                search_term = request.GET.get('search_term')
+                                pen_name = search_term.title() if search_term else local_author.search_name.title()
+
+                                logger.info("=== Pen Name Formatting ===")
+                                logger.info("Search term from request: %s", search_term)
+                                logger.info("Real name: %s", real_name)
+                                logger.info("Pen name being used: %s", pen_name)
+                                logger.info("Local author search name: %s", local_author.search_name)
+                                logger.info("Author details: %s", author_details)
+
                                 formatted_name = _format_pen_name(
                                     real_name=real_name,
                                     pen_name=pen_name,
                                     alternate_names=author_details.get('alternate_names', []),
                                     force_format=True  # Force pen name format when we find a match
                                 )
+                                logger.info("Formatted result: %s", formatted_name)
                                 
                                 # Update names
                                 local_author.primary_name = formatted_name

@@ -6,6 +6,9 @@
     {{ form.author_name }}
     {{ form.author_olid }}
     
+    {# Add search_term to hidden fields #}
+    <input type="hidden" name="search_term" value="{{ request.GET.search_term }}">
+    
     {# Debug output #}
     <!-- Debug: {{ form.hidden_fields }} -->
     
