@@ -162,6 +162,10 @@ def _format_pen_name(real_name, pen_name, alternate_names, force_format=False):
     Returns:
         str: Formatted name with pen name in quotes if appropriate, or original name
     """
+    # If real_name and pen_name are the same, just return the name
+    if real_name.lower() == pen_name.lower():
+        return real_name
+
     # Split names into components and just use first and last
     name_parts = real_name.split()
     real_first = name_parts[0]
@@ -345,11 +349,14 @@ def _handle_book_search(request):
                                 logger.info("Local author search name: %s", local_author.search_name)
                                 logger.info("Author details: %s", author_details)
 
+                                # Only force pen name format if real name is different from pen name
+                                force_format = real_name.lower() != pen_name.lower()
+
                                 formatted_name = _format_pen_name(
                                     real_name=real_name,
                                     pen_name=pen_name,
                                     alternate_names=author_details.get('alternate_names', []),
-                                    force_format=True  # Force pen name format when we find a match
+                                    force_format=force_format  # Only force format if names are different
                                 )
                                 logger.info("Formatted result: %s", formatted_name)
                                 
