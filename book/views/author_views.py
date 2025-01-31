@@ -34,21 +34,26 @@ def get_author(request):
                 display_name = name.split(' (')[0]  # Remove work count
                 
                 # Get the original search term from the form or POST data
-                if form.data.get('author_name') != request.POST.get('author_name'):
-                    logger.info("conflicting names: %s and %s", form.data.get('author_name'), request.POST.get('author_name'))
-                search_term = form.data.get('author_name') # request.POST.get('search_term') or 
-                logger.info("Search term: %s", search_term)
+                search_term = form.data.get('author_name') or request.POST.get('search_term')
                 if search_term and ' (' in search_term:
                     search_term = search_term.split(' (')[0]  # Clean up search term too
                 
                 # Add search term to redirect params if it differs from display name
                 if search_term and search_term.lower() != display_name.lower():
+                    # Extract OLID if present in the form value
+                    author_olid = None
+                    if DIVIDER in form.cleaned_data['author_name']:
+                        _, author_olid = form.cleaned_data['author_name'].split(DIVIDER)
+                    
                     redirect_params = {
                         'author_name': display_name,
                         'author_role': author_role,
                         'search_term': search_term,
                         **first_work_params
                     }
+                    if author_olid:
+                        redirect_params['author_olid'] = author_olid
+                    
                     return HttpResponseRedirect(f'/title.html?{urlencode(redirect_params, doseq=True)}')
             
             # Check if this is a local author result with DIVIDER
@@ -231,44 +236,3 @@ def confirm_author(request):
 
         # Redirect to title lookup
         return HttpResponseRedirect(f'/title.html?author_olid={olid}&author_name={name}&author_role={author_role}')
-
-"""@require_GET
-def search_author(request):
-    Search for an author by name.
-    query = request.GET.get('q', '')
-    if not query:
-        return JsonResponse([], safe=False)
-
-    # First search local database
-    local_authors = Author.objects.filter(search_name__icontains=query.lower())
-    results = []
-    
-    # Add local results
-    for author in local_authors:
-        results.append({
-            'name': author.primary_name,
-            'birth_date': author.birth_date,
-            'death_date': author.death_date,
-            'value': f"{author.primary_name}{DIVIDER}{author.olid}"
-        })
-
-    # Then search OpenLibrary if needed
-    if len(results) < 5:
-        ol = CachedOpenLibrary()
-        ol_results = ol.Author.search(query, limit=5-len(results))
-        
-        # Add OpenLibrary results
-        for author in ol_results:
-            if author.get('key'):
-                results.append({
-                    'name': author.get('name', ''),
-                    'alternate_names': author.get('alternate_names', []),
-                    'birth_date': author.get('birth_date', ''),
-                    'death_date': author.get('death_date', ''),
-                    'key': author['key'],
-                    'type': author.get('type', {}).get('key', '')
-                })
-
-    print(f"Search results for '{query}':", results)  # Debug log
-    return JsonResponse(results, safe=False)
-"""

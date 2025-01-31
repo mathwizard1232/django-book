@@ -118,6 +118,13 @@ class TestAuthorSearch:
             EC.url_contains('/title')
         )
         content = browser.page_source
+        
+        # Debug output
+        print("\nPage source after redirect:")
+        print("=" * 80)
+        print(content)
+        print("=" * 80)
+        
         assert "Frederick Faust" in content
 
     def test_author_search_display_details(self, browser, requests_mock):
