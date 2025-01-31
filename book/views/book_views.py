@@ -222,11 +222,20 @@ def _handle_book_search(request):
             logger.info("Creating author from details: %s", author_details)
             
             # Get the search term if available
-            search_term = params.get('search_term')
+            search_term = params.get('search_term') or author_details.get('name')  # hacky fallback to use author name as search term
+            # this lets us recognize the case where we've dropped the search term because it matched the name
             real_name = author_details.get('personal_name') or author_details.get('name')
             
+            logger.info("`get_title` Search term: %s", search_term)
+            logger.info("`get_title` Real name: %s", real_name)
+            logger.info("`get_title` Author name: %s", author_details.get('name'))
+            # alternate names
+            logger.info("`get_title` Alternate names: %s", author_details.get('alternate_names', []))
             # If search term matches an alternate name, format with pen name
-            if search_term and search_term in author_details.get('alternate_names', []):
+            if search_term and (search_term in author_details.get('alternate_names', []) or 
+                                    (search_term == author_details.get('name')
+                                     and search_term != real_name)):
+                logger.info("`get_title` Formatting with pen name")
                 primary_name = f"{real_name.split()[0]} '{search_term}' {real_name.split()[-1]}"
             else:
                 primary_name = real_name
