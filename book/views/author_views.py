@@ -33,8 +33,11 @@ def get_author(request):
             if ' (' in name:
                 display_name = name.split(' (')[0]  # Remove work count
                 
-                # Get the original search term from the form
-                search_term = form.data.get('author_name')  # This gets what user typed
+                # Get the original search term from the form or POST data
+                if form.data.get('author_name') != request.POST.get('author_name'):
+                    logger.info("conflicting names: %s and %s", form.data.get('author_name'), request.POST.get('author_name'))
+                search_term = form.data.get('author_name') # request.POST.get('search_term') or 
+                logger.info("Search term: %s", search_term)
                 if search_term and ' (' in search_term:
                     search_term = search_term.split(' (')[0]  # Clean up search term too
                 
