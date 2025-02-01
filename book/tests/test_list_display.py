@@ -269,3 +269,126 @@ class TestListDisplay:
         assert author.search_name == "max brand"
         assert "Max Brand" in author.alternate_names
         assert "George Owen Baxter" in author.alternate_names 
+
+    def test_pen_name_double_formatting_integration(self, client, browser, requests_mock):
+        """Test that pen name formatting doesn't get applied twice through the complete flow."""
+        # Create basic location hierarchy
+        location = Location.objects.create(name="Test House", type="HOUSE")
+        room = Room.objects.create(name="Study", location=location)
+        bookcase = Bookcase.objects.create(name="North Wall Bookcase", room=room, shelf_count=5)
+        shelf = Shelf.objects.get(bookcase=bookcase, position=1)
+
+        # Mock OpenLibrary author search response - initial "Max Brand" search
+        mock_author_search = [{
+            "key": "/authors/OL10356294A",
+            "name": "Max Brand",
+            "work_count": 24
+        }]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Max+Brand&limit=5',
+            json=mock_author_search
+        )
+
+        # Mock the initial author details
+        mock_initial_author = {
+            'key': '/authors/OL10356294A',
+            'name': 'Max Brand',
+            'work_count': 24
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL10356294A.json',
+            json=mock_initial_author
+        )
+        # Mock the OLID search (which will fail)
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
+            json={'docs': []}
+        )
+
+        # Mock the work search that returns Frederick Faust as author
+        mock_work_response = {
+            'docs': [{
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'author_name': ['Frederick Faust'],
+                'author_key': ['OL2748402A'],
+                'first_publish_year': 1923
+            }]
+        }
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
+            json=mock_work_response
+        )
+
+        # Mock the work's author details that will be fetched
+        mock_author_details = {
+            'key': '/authors/OL2748402A',
+            'name': 'Frederick Faust',
+            'personal_name': 'Frederick Schiller Faust',
+            'alternate_names': ['Max Brand', 'George Owen Baxter'],
+            'birth_date': '29 May 1892',
+            'death_date': '12 May 1944'
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL2748402A.json',
+            json=mock_author_details
+        )
+
+        # Mock the work details API
+        requests_mock.get(
+            'https://openlibrary.org/works/OL123W.json',
+            json={
+                'key': '/works/OL123W',
+                'title': 'The Mustang Herder',
+                'authors': [{'key': '/authors/OL2748402A'}],
+                'type': {'key': '/type/work'}
+            }
+        )
+
+        # Start the flow - author search
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Max Brand")
+        author_page.select_openlibrary_author("Max Brand (24 works)")
+
+        # Handle title entry
+        book_page = BookPage(browser)
+        book_page.enter_title("The Mustang Herder")
+        book_page.submit_title_form()
+
+        # Debug output for confirmation page
+        print("\nConfirmation page content:")
+        print(browser.page_source)
+
+        # Verify the confirmation page shows the formatted name
+        content = browser.page_source
+        assert "Frederick 'Max Brand' Faust" in content
+        assert "The Mustang Herder" in content
+
+        # Select shelf and confirm
+        book_page.select_shelf(f"Shelf {shelf.position}")
+        book_page.confirm_shelving()
+
+        # Now get the list view
+        response = client.get(reverse('list'))
+        content = response.content.decode()
+        
+        print("\nList view content:")
+        print(content)
+
+        # Verify the author name appears correctly exactly twice
+        assert content.count("Frederick &#x27;Max Brand&#x27; Faust") == 2
+        assert "Frederick &#x27;Frederick &#x27;Max Brand&#x27; Faust&#x27; Faust" not in content
+
+        # Verify other display elements
+        assert "The Mustang Herder" in content
+        assert f"{location.name}" in content
+        assert f"{bookcase.name}" in content
+        assert f"Shelf {shelf.position}" in content
+
+        # Verify final database state
+        author = Author.objects.get(olid="OL2748402A")
+        assert author.primary_name == "Frederick 'Max Brand' Faust"
+        assert author.search_name == "max brand"
+        assert "Max Brand" in author.alternate_names
+        assert "George Owen Baxter" in author.alternate_names 
