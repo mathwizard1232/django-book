@@ -93,3 +93,60 @@ class TestListDisplay:
 
         # Verify work counts are correct
         assert ">1</h3>" in content and "Distinct Works" in content  # Should only count the collection as one work 
+
+    def test_pen_name_display_without_recursion(self, client):
+        """Test that a pen name author displays correctly without recursive formatting."""
+        # Create basic location hierarchy
+        location = Location.objects.create(name="Test House", type="HOUSE")
+        room = Room.objects.create(name="Study", location=location)
+        bookcase = Bookcase.objects.create(name="North Wall Bookcase", room=room, shelf_count=5)
+        shelf = Shelf.objects.get(bookcase=bookcase, position=1)
+
+        # Create test author with pen name format
+        author = Author.objects.create(
+            primary_name="Frederick 'Max Brand' Faust",
+            search_name="max brand",
+            olid="OL123A",
+            alternate_names=["Max Brand", "George Owen Baxter"]
+        )
+
+        # Create work
+        work = Work.objects.create(
+            title="The Mustang Herder",
+            search_name="mustang herder",
+            type="NOVEL"
+        )
+        work.authors.add(author)
+
+        # Create edition and copy
+        edition = Edition.objects.create(
+            work=work,
+            publisher="Unknown",
+            format="PAPERBACK"
+        )
+
+        copy = Copy.objects.create(
+            edition=edition,
+            shelf=shelf,
+            location=location,
+            room=room,
+            bookcase=bookcase,
+            condition="GOOD"
+        )
+
+        # Get the list view
+        response = client.get(reverse('list'))
+        content = response.content.decode()
+
+        # Add debug output
+        print("Content:", content)
+
+        # Verify the author name appears correctly once (accounting for HTML encoding)
+        assert "Frederick &#x27;Max Brand&#x27; Faust" in content
+        assert "Frederick &#x27;Frederick &#x27;Max Brand&#x27; Faust&#x27; Faust" not in content
+
+        # Verify work displays correctly
+        assert work.title in content
+        assert f"{location.name}" in content
+        assert f"{bookcase.name}" in content
+        assert f"Shelf {shelf.position}" in content 
