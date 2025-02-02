@@ -138,11 +138,11 @@ def confirm_book(request):
     """ Given enough information for a lookup, retrieve the most likely book and confirm it's correct """
     logger.info("=== Book Confirmation Request Details ===")
     logger.info("Session collection_first_work: %s", request.session.get('collection_first_work'))
-    logger.info("GET params first_work data: %s", {
-        k: v for k, v in request.GET.items() if k.startswith('first_work_')
+    logger.info("GET params data: %s", {
+        k: v for k, v in request.GET.items()
     })
-    logger.info("POST params first_work data: %s", {
-        k: v for k, v in request.POST.items() if k.startswith('first_work_')
+    logger.info("POST params data: %s", {
+        k: v for k, v in request.POST.items()
     })
 
     if request.method == 'POST':
@@ -483,6 +483,7 @@ def _handle_book_search(request):
                 'publisher': result.publisher[0] if hasattr(result, 'publisher') and result.publisher else 'Unknown'
             }
             logger.info("Second work details: %s", second_work)
+            context['second_work'] = second_work
             result_form_args.update({
                 'first_work_title': first_work_data['first_work_title'],
                 'first_work_olid': first_work_data['first_work_olid'],

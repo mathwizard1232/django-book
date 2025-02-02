@@ -177,6 +177,28 @@ class TestLocationManagement:
             json=peril_response
         )
         
+        # Add author details mocks
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL123A.json',
+            json={
+                'key': '/authors/OL123A',
+                'name': 'Lin Carter',
+                'personal_name': 'Lin Carter',
+                'birth_date': '1930',
+                'death_date': '1988'
+            }
+        )
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL456A.json',
+            json={
+                'key': '/authors/OL456A',
+                'name': 'Kris Neville',
+                'personal_name': 'Kris Neville',
+                'birth_date': '1925',
+                'death_date': '1980'
+            }
+        )
+        
         # Add work details mocks
         requests_mock.get(
             'https://openlibrary.org/works/OL123W.json',

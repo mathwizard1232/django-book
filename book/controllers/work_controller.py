@@ -31,6 +31,7 @@ class WorkController:
             # Check if this is a collection confirmation
             if self.request.POST.get('second_work_title'):
                 logger.info("=== Collection Flow Details ===")
+                logger.info("First work title: %s", self.request.POST.get('first_work_title'))
                 logger.info("Second work title: %s", self.request.POST.get('second_work_title'))
                 logger.info("Collection title: %s", self.request.POST.get('title'))
                 return self._handle_collection_confirmation()
@@ -507,6 +508,8 @@ class WorkController:
             'author_names': self.request.POST.get('first_work_author_names', '').split(','),
             'author_olids': self.request.POST.get('first_work_author_olids', '').split(','),
         }
+
+        logger.info("First work: %s", first_work)
         
         second_work = {
             'title': self.request.POST.get('second_work_title'),
@@ -514,6 +517,8 @@ class WorkController:
             'author_names': self.request.POST.get('second_work_author_names', '').split(','),
             'author_olids': self.request.POST.get('second_work_author_olids', '').split(','),
         }
+        
+        logger.info("Second work: %s", second_work)
         
         collection_title = self.request.POST.get('title')
         
@@ -527,6 +532,7 @@ class WorkController:
             
             work = Work.objects.filter(olid=work_data['olid']).first()
             if not work:
+                logger.info("Creating new work: %s", work_data)
                 work = Work.objects.create(
                     olid=work_data['olid'],
                     title=work_data['title'],
@@ -542,6 +548,7 @@ class WorkController:
                             work.authors.add(author)
                             all_authors.add(author)
             else:
+                logger.info("Work already exists: %s", work)
                 all_authors.update(work.authors.all())
             
             works.append(work)
