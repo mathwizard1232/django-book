@@ -288,7 +288,7 @@ class WorkController:
             formatted_name = self._format_pen_name(real_name, pen_name, alternate_names)
         else:
             formatted_name = name
-            
+        logger.info("Creating author with name: %s and search name: %s", formatted_name, name.lower())    
         return Author.objects.create(
             primary_name=formatted_name,
             search_name=name.lower(),  # Use the searched name for search
