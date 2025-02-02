@@ -13,15 +13,16 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
+#from django.contrib import admin
 from django.urls import path
 
 from .views import index, get_author, confirm_author, get_title, confirm_book, author_autocomplete, test_autocomplete, title_autocomplete, list, manage_locations, get_rooms, get_bookcases, get_shelves, assign_location, update_shelf_notes, shelve_books, get_shelf_details, get_book_by_isbn, reshelve_books, get_books_by_location, get_shelf_books, title_only_search, start_collection, cancel_collection
 from .api_views import api_root
+from .admin import admin_site
 
 urlpatterns = [
     path('', index, name='index'),
-    path('admin/', admin.site.urls),
+    path('admin/', admin_site.urls),
     path('author/', get_author, name='get_author'),
     path('confirm-author.html', confirm_author, name='confirm_author'),
     path('title.html', get_title, name='get_title'),
