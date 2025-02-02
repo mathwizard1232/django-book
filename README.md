@@ -62,7 +62,6 @@ not previously seen, the OpenLibrary API is called for lookup and confirmation s
 There is also an entry by ISBN flow now, but there's not yet a mobile flow for being able to just scan a barcode.
 
 ## Known Issues
-* Lookup of author should give more information on confirmation
 * Lookup of book should give more information on confirmation
 * Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
 * Need to be able to edit/delete Locations through UI
