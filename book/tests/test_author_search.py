@@ -535,3 +535,59 @@ class TestAuthorSearch:
         author = Author.objects.get(olid="OL10352592A")
         assert author.primary_name == "Max Brand"
         assert author.search_name == "Max Brand"
+
+    def test_author_biography_formatting(self, browser, requests_mock):
+        """Test that author biography is properly formatted on confirmation page."""
+        # Mock OpenLibrary API responses
+        mock_search_response = [{
+            'key': '/authors/OL248615A',
+            'name': 'Shelby L. Stanton',
+            'work_count': 73,
+            'birth_date': '1948',
+            'type': {'key': '/type/author'}
+        }]
+
+        # Mock both the dropdown autocomplete and confirmation page search
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Shelby+Stanton&limit=5',
+            json=mock_search_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Shelby+Stanton&limit=2',
+            json=mock_search_response
+        )
+
+        # Mock the full author details that will be fetched for confirmation
+        mock_author_details = {
+            'key': '/authors/OL248615A',
+            'name': 'Shelby L. Stanton',
+            'personal_name': 'Shelby L. Stanton',
+            'birth_date': '1948',
+            'alternate_names': ['Shelby Stanton', 'Capt. Shelby L. Stanton'],
+            'bio': {
+                'type': '/type/text',
+                'value': 'Shelby L. Stanton (born 1948) is a retired Captain of the United States Army.'
+            }
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL248615A.json',
+            json=mock_author_details
+        )
+
+        # Initialize page and perform search
+        page = AuthorPage(browser)
+        page.navigate()
+        page.search_author("Shelby Stanton")
+
+        # Submit form to go to confirmation page
+        search_form = browser.find_element(By.TAG_NAME, 'form')
+        search_form.submit()
+
+        # Get the biography textarea content
+        bio_textarea = browser.find_element(By.ID, "id_bio")
+        bio_content = bio_textarea.get_attribute('value')
+
+        # The biography should be just the text, not the dictionary
+        assert "{'type': '/type/text'" not in bio_content
+        assert "'value':" not in bio_content
+        assert bio_content.strip() == 'Shelby L. Stanton (born 1948) is a retired Captain of the United States Army.'
