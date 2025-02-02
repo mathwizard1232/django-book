@@ -300,6 +300,24 @@ class WorkController:
         """Format author name to include pen name if appropriate"""
         logger.info(f"Formatting pen name - real: {real_name}, pen: {pen_name}, alternates: {alternate_names}")
         
+        # Split both names into components
+        real_parts = real_name.split()
+        pen_parts = pen_name.split()
+        
+        # Check if first and last names already match
+        if len(real_parts) >= 2 and len(pen_parts) >= 2:
+            if real_parts[0] == pen_parts[0] and real_parts[-1] == pen_parts[-1]:
+                logger.error(
+                    "CRITICAL: Attempted to double-format pen name!"
+                    f"\nExisting name: {real_name}"
+                    f"\nPen name to add: {pen_name}"
+                    f"\nFirst/last match detected"
+                    f"\nAlternate names: {alternate_names}",
+                    stack_info=True
+                )
+                # Kludge fix; better would be to prevent hitting this perhaps.
+                return pen_name
+
         # If the pen name is in alternate names, it confirms it's a valid pen name
         if pen_name.lower() in [alt.lower() for alt in alternate_names]:
             # Split real name into components
