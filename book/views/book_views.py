@@ -345,6 +345,9 @@ def _handle_book_search(request):
                             }
                             if _author_name_matches(author_name, local_author, result_dict):
                                 logger.info("Found matching author through alternate names")
+                                # Initialize alternate_olids if needed
+                                if not local_author.alternate_olids:
+                                    local_author.alternate_olids = []
                                 
                                 # Format combined name
                                 real_name = author_details.get('personal_name') or author_details.get('name')
@@ -357,6 +360,13 @@ def _handle_book_search(request):
                                 logger.info("Pen name being used: %s", pen_name)
                                 logger.info("Local author search name: %s", local_author.search_name)
                                 logger.info("Author details: %s", author_details)
+                                logger.info("olid: %s", author['olid'])
+
+                                if author['olid'] != local_author.olid:
+                                    if author['olid'] not in local_author.alternate_olids:
+                                        logger.info("Adding alternate OLID: %s", author['olid'])
+                                        local_author.alternate_olids.append(author['olid'])
+                                        local_author.save()
 
                                 # Only force pen name format if real name is different from pen name
                                 force_format = real_name.lower() != pen_name.lower()
@@ -372,6 +382,7 @@ def _handle_book_search(request):
                                 # Update names
                                 local_author.primary_name = formatted_name
                                 # Keep the pen name as search name
+                                logger.info("Setting search name to pen name: %s", pen_name)
                                 local_author.search_name = pen_name.lower()
                                 
                                 # Get work counts from OpenLibrary for both authors
@@ -496,6 +507,7 @@ def _handle_book_search(request):
     context['locations'] = Location.objects.all()
     context['forms'] = forms
     
+    return render(request, template, context)
     return render(request, template, context)
 
 def _work_to_dict(work):
@@ -735,6 +747,10 @@ def _author_name_matches(name, local_author, result):
     logger.info("=== Checking Author Name Match ===")
     logger.info("Comparing name: '%s' with local author: '%s'", name, local_author.primary_name)
     logger.info("Local author alternate names: %s", local_author.alternate_names)
+
+    if name == local_author.primary_name:
+        logger.info("Name matches local author exactly!")
+        return True
     
     # Normalize names for comparison - remove commas and convert to lowercase
     def normalize_name(n):

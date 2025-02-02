@@ -254,6 +254,10 @@ class WorkController:
         
     def _update_author_details(self, author: Author, author_details: Dict) -> None:
         """Update author with details from OpenLibrary"""
+        logger.info("=== Updating Author Details ===")
+        logger.info("Current author state - primary: %s, search: %s", author.primary_name, author.search_name)
+        logger.info("Author details from OL: %s", author_details)
+        
         alternate_names = author_details.get('alternate_names', [])
         real_name = author_details.get('personal_name') or author_details.get('name')
         
@@ -262,25 +266,39 @@ class WorkController:
             pen_name = author.primary_name
             # Keep the original search name
             search_name = author.search_name
+            logger.info("Processing names - real: %s, pen: %s, search: %s", real_name, pen_name, search_name)
+            
             # Check if current name is in alternate names list
             if pen_name not in alternate_names:
                 alternate_names.append(pen_name)
             
             formatted_name = self._format_pen_name(real_name, pen_name, alternate_names)
+            logger.info("Final formatted name: %s", formatted_name)
             
             author.primary_name = formatted_name
             author.search_name = search_name  # Keep existing search name
             author.alternate_names = alternate_names
             author.save()
+            logger.info("Updated author state - primary: %s, search: %s", author.primary_name, author.search_name)
         
     def _create_author_with_details(self, name: str, olid: str, author_details: Dict) -> Author:
         """Create new author with OpenLibrary details"""
+        logger.info("=== Creating Author with Details ===")
+        logger.info("Initial name: %s, OLID: %s", name, olid)
+        logger.info("Author details from OL: %s", author_details)
+        
         alternate_names = author_details.get('alternate_names', [])
         real_name = author_details.get('personal_name') or author_details.get('name')
+        
+        # Always use the original search name
+        search_name = name.lower()
+        logger.info("Original search name: %s", search_name)
         
         if real_name and real_name != name:  # If we have a real name different from search name
             # The searched name (name) is the pen name since user searched for it
             pen_name = name
+            logger.info("Processing names - real: %s, pen: %s", real_name, pen_name)
+            
             # Add pen name to alternate names if not present
             if pen_name not in alternate_names:
                 alternate_names.append(pen_name)
@@ -288,10 +306,12 @@ class WorkController:
             formatted_name = self._format_pen_name(real_name, pen_name, alternate_names)
         else:
             formatted_name = name
-        logger.info("Creating author with name: %s and search name: %s", formatted_name, name.lower())    
+        
+        logger.info("Final names - formatted: %s, search: %s", formatted_name, search_name)
+        
         return Author.objects.create(
             primary_name=formatted_name,
-            search_name=name.lower(),  # Use the searched name for search
+            search_name=search_name,  # Use original search name
             olid=olid,
             alternate_names=alternate_names
         )
