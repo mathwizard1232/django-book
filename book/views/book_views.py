@@ -501,13 +501,16 @@ def _handle_book_search(request):
         logger.info("=== Created Form ===")
         logger.info("Form data: %s", form.data)
         forms.append(form)
-        context['form'] = form
 
     # Add locations to context for the template
     context['locations'] = Location.objects.all()
     context['forms'] = forms
     
-    return render(request, template, context)
+    # Add the first form as the default form for backward compatibility
+    # This ensures templates that expect 'form' still work
+    if forms:
+        context['form'] = forms[0]
+
     return render(request, template, context)
 
 def _work_to_dict(work):

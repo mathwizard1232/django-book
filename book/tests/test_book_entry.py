@@ -1108,6 +1108,12 @@ class TestPenNameBookEntry:
         book_page.enter_title("The Rise and Fall of an American Army")
         book_page.submit_title_form()
 
+        # Debug output
+        print("\nPage source:")
+        print("=" * 80)
+        print(browser.page_source)
+        print("=" * 80)
+
         # Verify both options are displayed with correct data
         content = browser.page_source
         
