@@ -176,7 +176,7 @@ def confirm_author(request):
             'death_date': first_author_full.get('death_date', ''),
             'alternate_names': first_author_full.get('alternate_names', []),
             'personal_name': first_author_full.get('personal_name', ''),
-            'bio': first_author_full.get('bio', ''),
+            'bio': first_author_full.get('bio', {}).get('value', '') if isinstance(first_author_full.get('bio'), dict) else first_author_full.get('bio', ''),
             'work_count': first_author.get('work_count', 0)
         }
         logger.info("First author details for template: %s", first_author_details)
@@ -201,7 +201,7 @@ def confirm_author(request):
                 'death_date': second_author_full.get('death_date', ''),
                 'alternate_names': second_author_full.get('alternate_names', []),
                 'personal_name': second_author_full.get('personal_name', ''),
-                'bio': second_author_full.get('bio', ''),
+                'bio': second_author_full.get('bio', {}).get('value', '') if isinstance(second_author_full.get('bio'), dict) else second_author_full.get('bio', ''),
                 'work_count': second_author.get('work_count', 0)
             }
             logger.info("Second author details for template: %s", second_author_details)
