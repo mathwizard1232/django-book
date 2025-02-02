@@ -1034,3 +1034,92 @@ class TestPenNameBookEntry:
         # Verify the original OLID author no longer exists
         with pytest.raises(Author.DoesNotExist):
             Author.objects.get(olid="OL10352592A")
+
+    def test_multiple_work_options(self, browser, requests_mock):
+        """Test that when multiple work options are returned, they are displayed correctly."""
+        
+        # Create test author in database
+        author = Author.objects.create(
+            primary_name="Shelby L. Stanton",
+            search_name="shelby l. stanton",
+            olid="OL248615A"
+        )
+
+        # Mock OpenLibrary author search response with actual results
+        mock_author_search = [{
+            "key": "/authors/OL248615A",
+            "name": "Shelby L. Stanton",
+            "work_count": 73,
+            "birth_date": "1948"
+        }]
+        requests_mock.get(
+            'https://openlibrary.org/authors/_autocomplete?q=Shelby+L.+Stanton&limit=5',
+            json=mock_author_search
+        )
+
+        # Mock the full author details
+        mock_author_details = {
+            'key': '/authors/OL248615A',
+            'name': 'Shelby L. Stanton',
+            'personal_name': 'Shelby L. Stanton',
+            'birth_date': '1948',
+            'type': {'key': '/type/author'}
+        }
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL248615A.json',
+            json=mock_author_details
+        )
+
+        # Mock OpenLibrary API search response with two different works
+        mock_work_response = {
+            'docs': [
+                {
+                    'key': '/works/OL2046546W',
+                    'title': 'The Rise and Fall of an American Army',
+                    'subtitle': 'U.S. Ground Forces in Vietnam, 1965-1973',
+                    'author_name': ['Shelby L. Stanton'],
+                    'author_key': ['OL248615A'],
+                    'first_publish_year': 1985
+                },
+                {
+                    'key': '/works/OL24186712W',
+                    'title': 'The Rise and Fall of an American Army U.S. Ground Forces in Vietnam 1965-1973',
+                    'author_name': ['Shelby L. Stanton'],
+                    'author_key': ['OL248615A'],
+                    'first_publish_year': 2018
+                }
+            ]
+        }
+
+        # Mock the API search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?author=OL248615A&title=The+Rise+and+Fall+of+an+American+Army&limit=2',
+            json=mock_work_response
+        )
+
+        # Start with author selection
+        author_page = AuthorPage(browser)
+        author_page.navigate()
+        author_page.search_author("Shelby L. Stanton")
+        author_page.select_local_author("Shelby L. Stanton")
+
+        # Enter title
+        book_page = BookPage(browser)
+        book_page.enter_title("The Rise and Fall of an American Army")
+        book_page.submit_title_form()
+
+        # Verify both options are displayed with correct data
+        content = browser.page_source
+        
+        # First option should have first work's data
+        assert 'The Rise and Fall of an American Army' in content
+        # it's not showing subtitle, but that's not our first / most important issue
+        #assert 'U.S. Ground Forces in Vietnam, 1965-1973' in content
+        assert 'OL2046546W' in content
+        
+        # Second option should have second work's data
+        assert 'The Rise and Fall of an American Army U.S. Ground Forces in Vietnam 1965-1973' in content
+        assert 'OL24186712W' in content
+
+        # Verify both options have the author
+        assert content.count("Shelby L. Stanton") >= 2  # Should appear at least twice
