@@ -79,14 +79,15 @@ class BookAdminSite(admin.AdminSite):
         urls = super().get_urls()
         custom_urls = [
             path('wipe-database/', self.admin_view(self.wipe_database_view), name='wipe-database'),
+            path('clear-cache/', self.admin_view(self.clear_cache_view), name='clear-cache'),
         ]
         return custom_urls + urls
 
     def index(self, request, extra_context=None):
-        """Override index to add the wipe database button"""
+        """Override index to add the wipe database and clear cache buttons"""
         extra_context = extra_context or {}
         extra_context['show_wipe_button'] = True
-        print("Debug: Setting show_wipe_button to True")  # Debug print
+        extra_context['show_clear_cache_button'] = True
         return super().index(request, extra_context)
 
     def wipe_database_view(self, request):
@@ -126,6 +127,18 @@ class BookAdminSite(admin.AdminSite):
             request,
             'admin/wipe_confirmation.html',
             context={'title': 'Wipe Database'}
+        )
+
+    def clear_cache_view(self, request):
+        if request.method == 'POST' and request.POST.get('confirm'):
+            OpenLibraryCache.objects.all().delete()
+            messages.success(request, "OpenLibrary cache has been cleared.")
+            return HttpResponseRedirect(reverse('admin:index'))
+        
+        return render(
+            request,
+            'admin/clear_cache_confirmation.html',
+            context={'title': 'Clear OpenLibrary Cache'}
         )
 
 # Create custom admin site instance

@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="alert alert-warning">
+    <h2>Are you sure?</h2>
+    <p>This will clear all cached OpenLibrary API responses. The cache will be rebuilt as needed when making new requests.</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="confirm" value="yes">
+        <button type="submit" class="btn btn-danger">Clear Cache</button>
+        <a href="{% url 'admin:index' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %} 

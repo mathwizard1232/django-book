@@ -28,4 +28,16 @@
             </p>
         </div>
     </div>
+{% endblock %}
+
+{% block sidebar %}
+{{ block.super }}
+{% if show_clear_cache_button %}
+<div class="module">
+    <h2>Cache Management</h2>
+    <form action="{% url 'admin:clear-cache' %}" method="GET">
+        <input type="submit" value="Clear OpenLibrary Cache" class="btn btn-warning">
+    </form>
+</div>
+{% endif %}
 {% endblock %} 
