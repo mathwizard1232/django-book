@@ -462,8 +462,9 @@ def _handle_book_search(request):
                 else:
                     logger.warning("No OLID found for author: %s", author_name)
 
-        # Update form_args BEFORE creating the form
-        form_args.update({
+        # Create new form_args for this specific result
+        result_form_args = form_args.copy()  # Make a copy of the base form_args
+        result_form_args.update({
             'title': result.title,
             'work_olid': result.identifiers['olid'][0],
             'author_names': ','.join(author_names),
@@ -482,22 +483,15 @@ def _handle_book_search(request):
                 'publisher': result.publisher[0] if hasattr(result, 'publisher') and result.publisher else 'Unknown'
             }
             logger.info("Second work details: %s", second_work)
-            context['second_work'] = second_work
-            
-            # Add first work data to form_args
-            logger.info("=== Adding First Work Data to Form Args ===")
-            logger.info("First work data before update: %s", first_work_data)
-            logger.info("Form args before update: %s", form_args)
-            form_args.update({
+            result_form_args.update({
                 'first_work_title': first_work_data['first_work_title'],
                 'first_work_olid': first_work_data['first_work_olid'],
                 'first_work_author_names': first_work_data['first_work_author_names'],
                 'first_work_author_olids': first_work_data['first_work_author_olids']
             })
-            logger.info("Form args after update: %s", form_args)
 
-        # Now create the form with the updated form_args
-        form = ConfirmBook(form_args)
+        # Now create the form with the result-specific form_args
+        form = ConfirmBook(result_form_args)
         logger.info("=== Created Form ===")
         logger.info("Form data: %s", form.data)
         forms.append(form)
@@ -508,8 +502,8 @@ def _handle_book_search(request):
     
     # Add the first form as the default form for backward compatibility
     # This ensures templates that expect 'form' still work
-    if forms:
-        context['form'] = forms[0]
+    #if forms:
+    #    context['form'] = forms[0]
 
     return render(request, template, context)
 

@@ -69,7 +69,7 @@ There is also an entry by ISBN flow now, but there's not yet a mobile flow for b
 * Collection (multiple Works in a Work) entry is not yet working right (doesn't shelve correctly; etc; need to work on further testing on this flow)
 
 ## Wishlist
-* Need to refactor `_handle_book_confirmation` into its own file with helper methods
+* Need to refactor `_handle_book_search` into its own file with helper methods
 * Skip author confirmation on exact match
 * Skip Work confirmation on exact (or close enough; e.g. case-insensitive etc) match (? Then just shelving confirmation screen to close out in that case? Enter author -> title -> confirm shelf?)
 * Build out list / search of library: browse / find by author, etc
