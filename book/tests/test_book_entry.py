@@ -1288,6 +1288,31 @@ class TestPenNameBookEntry:
             json=mock_work_response
         )
 
+        # Add mock for title-only search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Rise+and+Fall+of+an+American+Army&limit=2',
+            json={
+                'num_found': 2,
+                'docs': [
+                    {
+                        'key': '/works/OL2046546W',
+                        'title': 'The Rise and Fall of an American Army',
+                        'subtitle': 'U.S. Ground Forces in Vietnam, 1965-1973',
+                        'author_name': ['Shelby L. Stanton'],
+                        'author_key': ['OL248615A'],
+                        'first_publish_year': 1985
+                    },
+                    {
+                        'key': '/works/OL24186712W',
+                        'title': 'The Rise and Fall of an American Army U.S. Ground Forces in Vietnam 1965-1973',
+                        'author_name': ['Shelby L. Stanton'],
+                        'author_key': ['OL248615A'],
+                        'first_publish_year': 2018
+                    }
+                ]
+            }
+        )
+
         # Start with author selection
         author_page = AuthorPage(browser)
         author_page.navigate()
