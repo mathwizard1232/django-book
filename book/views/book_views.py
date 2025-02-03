@@ -746,22 +746,40 @@ def _author_name_matches(name, local_author, result):
     logger.info("Comparing name: '%s' with local author: '%s'", name, local_author.primary_name)
     logger.info("Local author alternate names: %s", local_author.alternate_names)
 
+    # Direct match check
     if name == local_author.primary_name:
         logger.info("Name matches local author exactly!")
         return True
     
-    # Normalize names for comparison - remove commas and convert to lowercase
     def normalize_name(n):
-        # Split name into parts and try both orders
-        parts = n.lower().replace(',', '').strip().split()
-        return [' '.join(parts), ' '.join(reversed(parts))]
-    
-    name_variants = normalize_name(local_author.primary_name)  # Try both orders of local name
+        # Remove quotes and content within them
+        n = n.lower().replace(',', '')
+        # If it's a pen name format (contains quotes), extract both base name and pen name
+        if "'" in n:
+            # Extract the base name (remove quoted section)
+            base_name = n.split("'")[0].strip() + " " + n.split("'")[-1].strip()
+            # Extract the pen name (get quoted section)
+            pen_name = n.split("'")[1].strip()
+            return [base_name, pen_name]
+        return [n.strip()]
+
+    # Get normalized variants of the local author's name
+    name_variants = normalize_name(local_author.primary_name)
     logger.info("Looking for name variants: %s", name_variants)
     
-    # Check result's alternate names against local primary name variants
+    # Normalize the comparison name
+    test_name = name.lower().replace(',', '').strip()
+    logger.info("Normalized test name: %s", test_name)
+    
+    # Check if any variant matches
+    for variant in name_variants:
+        if variant == test_name:
+            logger.info("Found matching name variant '%s'!", variant)
+            return True
+            
+    # Check result's alternate names against local variants
     alt_names = []
-    if isinstance(result, dict):  # Handle both dict and OpenLibrary result objects
+    if isinstance(result, dict):
         if 'author_alternative_name' in result:
             alt_names.extend(result['author_alternative_name'])
         elif 'author_alternative_names' in result:  # Handle possible alternate key
@@ -771,7 +789,7 @@ def _author_name_matches(name, local_author, result):
     alt_names = [alt.lower().replace(',', '').strip() for alt in alt_names]
     logger.info("Normalized alternate names: %s", alt_names)
     
-    # Check if any variant of the local name appears in alternate names
+    # Check if any variant appears in alternate names
     for variant in name_variants:
         if variant in alt_names:
             logger.info("Found matching name variant '%s' in alternate names!", variant)

@@ -226,6 +226,19 @@ class TestListDisplay:
             }
         )
 
+        # Mock the work's author details
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL2748402A.json',
+            json={
+                'key': '/authors/OL2748402A',
+                'name': 'Frederick Faust',
+                'personal_name': 'Frederick Schiller Faust',
+                'alternate_names': ['Max Brand', 'George Owen Baxter'],
+                'birth_date': '29 May 1892',
+                'death_date': '12 May 1944'
+            }
+        )
+
         # Add mock for title-only search
         requests_mock.get(
             'https://openlibrary.org/search.json?title=The+Mustang+Herder&limit=2',
