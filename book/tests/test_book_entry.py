@@ -178,6 +178,21 @@ class TestBasicBookEntry:
             }
         )
 
+        # Mock the title-only search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Original+Test+Book&limit=2',
+            json={
+                'num_found': 1,
+                'docs': [{
+                    'key': '/works/OL123W',
+                    'title': 'Original Test Book',
+                    'author_name': ['Test Author'],
+                    'author_key': ['OL123A'],
+                    'first_publish_year': 2023
+                }]
+            }
+        )
+
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()
