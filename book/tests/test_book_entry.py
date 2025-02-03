@@ -1018,6 +1018,21 @@ class TestPenNameBookEntry:
             }
         )
 
+        # Add mock for title-only search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Mustang+Herder&limit=2',
+            json={
+                'num_found': 1,
+                'docs': [{
+                    'key': '/works/OL123W',
+                    'title': 'The Mustang Herder',
+                    'author_name': ['Frederick Faust'],
+                    'author_key': ['OL2748402A'],
+                    'first_publish_year': 1923
+                }]
+            }
+        )
+
         # Start author search and selection
         author_page = AuthorPage(browser)
         author_page.navigate()
