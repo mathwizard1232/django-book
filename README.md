@@ -71,10 +71,10 @@ There is also an entry by ISBN flow now, but there's not yet a mobile flow for b
 
 ## Known Issues
 * Lookup of book should give more information on confirmation
-* Visuals/UX inconsistent (UI text with background color set or not / CSS breaks)
+* Visuals/UX inconsistent (UI text with background color set or not / CSS breaks / not all titles set / etc)
 * Need to be able to edit/delete Locations through UI
-* Need to better support modifying / swapping when OL result is wrong/bad (e.g. "Flame of Iridar" brings back wrong double book instead of individual Work; user should be able to modify title and remove OL reference; OL references should be optional)
-* Collection (multiple Works in a Work) entry is not yet working right (doesn't shelve correctly; etc; need to work on further testing on this flow)
+* Need to better support modifying / swapping when OL result is wrong/bad (e.g. "Flame of Iridar" brings back wrong double book instead of individual Work; user should be able to modify title and remove OL reference; OL references should be optional; modification of incorrect authors on works; etc)
+* Collection (multiple Works in a Work) entry is not yet working right (currently working decently for doubles but not setup for 3+ Works)
 
 ## Wishlist
 * Need to refactor `_handle_book_search` into its own file with helper methods
