@@ -482,6 +482,36 @@ class TestCollectionBookEntry:
             }
         )
 
+        # Mock the title-only search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Flame+of+Iridar&limit=2',
+            json={
+                'num_found': 1,
+                'docs': [{
+                    'key': '/works/OL123W',
+                    'title': 'The Flame of Iridar',
+                    'author_name': ['Lin Carter'],
+                    'author_key': ['OL123A'],
+                    'first_publish_year': 1967
+                }]
+            }
+        )
+
+        # Mock the title-only search for second work
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Peril+of+the+Starmen&limit=2',
+            json={
+                'num_found': 1,
+                'docs': [{
+                    'key': '/works/OL456W',
+                    'title': 'Peril of the Starmen',
+                    'author_name': ['Kris Neville'],
+                    'author_key': ['OL456A'],
+                    'first_publish_year': 1967
+                }]
+            }
+        )
+
         # Start with first work's author and title
         author_page = AuthorPage(browser)
         author_page.navigate()
