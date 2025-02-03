@@ -42,22 +42,16 @@ class TestLocationManagement:
         bookcase = Bookcase.objects.create(name="North Wall Bookcase", room=room, shelf_count=5)
         shelf = Shelf.objects.get(bookcase=bookcase, position=1)
 
-        # Verify hierarchy exists
-        print("\nVerifying location hierarchy:")
-        print(f"Location: {Location.objects.first()}")
-        print(f"Room: {Room.objects.first()}")
-        print(f"Bookcase: {Bookcase.objects.first()}")
-        print(f"Shelf: {Shelf.objects.first()}")
-
         # Create test author and work
         author = Author.objects.create(
             primary_name="Test Author",
             search_name="test author",
             olid="OL123A"
         )
-        
+
         # Mock OpenLibrary API responses
         mock_work_response = {
+            'num_found': 1,
             'docs': [{
                 'key': '/works/OL123W',
                 'title': 'Test Book',
@@ -66,13 +60,21 @@ class TestLocationManagement:
                 'first_publish_year': 2023
             }]
         }
-        
-        # Mock the search endpoint
+
+        # Mock ALL possible search endpoint combinations
         requests_mock.get(
-            'https://openlibrary.org/search.json?title=Test+Book&author=OL123A',
+            'https://openlibrary.org/search.json?title=Test+Book&author=OL123A&limit=2',
             json=mock_work_response
         )
-        
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Test+Book&author=Test+Author&limit=2',
+            json=mock_work_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Test+Book&limit=2',
+            json=mock_work_response
+        )
+
         # Mock the work details endpoint
         requests_mock.get(
             'https://openlibrary.org/works/OL123W.json',
