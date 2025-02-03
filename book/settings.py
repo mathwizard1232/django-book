@@ -20,6 +20,12 @@ LOGGING = {
             'class': 'logging.StreamHandler',
         },
     },
+    'loggers': {
+        'open_library_work': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
     'root': {
         'handlers': ['console'],
         'level': 'INFO',

@@ -149,31 +149,48 @@ class TestLocationManagement:
 
         # Mock OpenLibrary API responses
         flame_response = {
+            'num_found': 1,
             'docs': [{
                 'key': '/works/OL123W',
                 'title': 'The Flame of Iridar and Peril of the Starmen',
-                'author_name': ['Lin Carter'],
-                'author_key': ['OL123A'],
+                'authors': [{'name': 'Lin Carter', 'olid': 'OL123A'}],
                 'first_publish_year': 1967
             }]
         }
         peril_response = {
+            'num_found': 1,
             'docs': [{
                 'key': '/works/OL456W',
                 'title': 'Peril of the Starmen & The Forgotten Planet',
-                'author_name': ['Kris Neville'],
-                'author_key': ['OL456A'],
+                'authors': [{'name': 'Kris Neville', 'olid': 'OL456A'}],
                 'first_publish_year': 1967
             }]
         }
         
-        # Mock the API calls
+        # Mock the API calls - updated for all search combinations
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL123A&title=The+Flame+of+Iridar&limit=2',
             json=flame_response
         )
         requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Flame+of+Iridar&author=Lin+Carter&limit=2',
+            json=flame_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Flame+of+Iridar&limit=2',
+            json=flame_response
+        )
+
+        requests_mock.get(
             'https://openlibrary.org/search.json?author=OL456A&title=Peril+of+the+Starmen&limit=2',
+            json=peril_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Peril+of+the+Starmen&author=Kris+Neville&limit=2',
+            json=peril_response
+        )
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=Peril+of+the+Starmen&limit=2',
             json=peril_response
         )
         

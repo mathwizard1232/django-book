@@ -46,6 +46,14 @@ pip install django
 python3 manage.py migrate
 ```
 
+Note that this may be necessary to pull in latest if working with dev versions of ol2:
+
+```bash
+pip uninstall openlibrary-client-2
+pip install --no-cache-dir git+https://github.com/mathwizard1232/openlibrary-client-2.git
+```
+(Because not properly updating versions so it doesn't recognize a change.)
+
 ## Running
 ```bash
 python3 manage.py runserver

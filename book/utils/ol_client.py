@@ -5,7 +5,7 @@ import logging
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 class CachedOpenLibrary(OpenLibrary):
     """OpenLibrary client with caching support"""
@@ -68,55 +68,18 @@ class CachedOpenLibrary(OpenLibrary):
         class CachedWork(original_work):
             @classmethod
             def search(cls, **kwargs):
-                # Construct the search URL exactly as the parent class would
-                params = {k: v for k, v in kwargs.items() if v is not None}
-                url = f"{ol_instance.base_url}/search.json?{urlencode(params)}"
-                
-                logger.debug(f"Making cached search request to {url}")
+                """Search for works with caching support"""
+                logger.debug(f"Searching OpenLibrary with exact kwargs: {kwargs}")
                 try:
-                    response = ol_instance._make_request(url)
-                    data = response.json()
-                    logger.info("Raw OpenLibrary response: num_found=%s, docs=%s", 
-                              data.get('num_found'), len(data.get('docs', [])))
-                    if not data.get('docs'):
-                        logger.info("No docs found in OpenLibrary response")
-                        return []
-                    
-                    # Process results and restructure to match expected format
-                    if kwargs.get('limit', 1) > 1:
-                        works = []
-                        for doc in data['docs'][:kwargs.get('limit')]:
-                            work = cls(doc['key'].split('/')[-1])
-                            work.title = doc['title']
-                            work.publish_date = doc.get('first_publish_year')
-                            work.publisher = doc.get('publisher', [''])[0] if doc.get('publisher') else ''
-                            # Include author keys when creating author dictionaries
-                            work.authors = []
-                            for i, name in enumerate(doc.get('author_name', [])):
-                                author = {'name': name}
-                                if 'author_key' in doc and i < len(doc['author_key']):
-                                    author['olid'] = doc['author_key'][i]
-                                work.authors.append(author)
-                            work.identifiers = {'olid': [doc['olid']]} if 'olid' in doc else {'olid': [doc['key'].split('/')[-1]]}
-                            works.append(work)
-                        logger.info("Multiple results found in OpenLibrary response")
-                        return works
-                    else:
-                        logger.info("Single result found in OpenLibrary response")
-                        doc = data['docs'][0]
-                        work = cls(doc['key'].split('/')[-1])
-                        work.title = doc['title']
-                        work.publish_date = doc.get('first_publish_year')
-                        work.publisher = doc.get('publisher', [''])[0] if doc.get('publisher') else ''
-                        # Include author keys when creating author dictionaries
-                        work.authors = []
-                        for i, name in enumerate(doc.get('author_name', [])):
-                            author = {'name': name}
-                            if 'author_key' in doc and i < len(doc['author_key']):
-                                author['olid'] = doc['author_key'][i]
-                            work.authors.append(author)
-                        work.identifiers = {'olid': [doc['olid']]} if 'olid' in doc else {'olid': [doc['key'].split('/')[-1]]}
-                        return work
+                    # Use parent's search which will use our cached _make_request
+                    results = super().search(**kwargs)
+                    logger.debug(f"Results: {results}")
+                    if not results:
+                        logger.info(f"No results found for kwargs: {kwargs}")
+                        return [] if kwargs.get('limit', 1) > 1 else None
+                        
+                    return results
+                
                 except Exception as e:
                     logger.error(f"Search failed: {e}")
                     raise
