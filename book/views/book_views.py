@@ -761,7 +761,12 @@ def _author_name_matches(name, local_author, result):
             # Extract the pen name (get quoted section)
             pen_name = n.split("'")[1].strip()
             return [base_name, pen_name]
-        return [n.strip()]
+        # try reverse order as well: e.g. "max brand" and "brand max"
+        # split on spaces and *don't* reverse each part but just reverse the order of the words
+        basic = n.strip()
+        split = basic.split(' ')
+        return [basic, ' '.join(split[::-1])]
+
 
     # Get normalized variants of the local author's name
     name_variants = normalize_name(local_author.primary_name)
