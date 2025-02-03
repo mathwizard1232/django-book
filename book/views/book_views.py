@@ -210,7 +210,7 @@ def _handle_book_search(request):
     if 'author_olid' in params:
         form_args['author_olid'] = params['author_olid']
         local_author = Author.objects.filter(olid=form_args['author_olid']).first()
-        logger.info("Found local author: %s with OLID %s", 
+        logger.info("Found local author in `_handle_book_search`: %s with OLID %s", 
                    local_author.primary_name if local_author else None, 
                    form_args['author_olid'])
         
@@ -533,7 +533,7 @@ def _search_openlibrary(ol, title, author_olid=None, author_name=None):
     local_author = None
     if author_olid:
         local_author = Author.objects.filter(olid=author_olid).first()
-        logger.info("Found local author: %s with OLID %s", 
+        logger.info("Found local author in `_search_openlibrary` (pass in?): %s with OLID %s", 
                    local_author.primary_name if local_author else None, 
                    author_olid)
     

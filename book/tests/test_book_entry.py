@@ -876,6 +876,19 @@ class TestPenNameBookEntry:
             json=mock_author_details
         )
 
+        # Mock the work's author details
+        requests_mock.get(
+            'https://openlibrary.org/authors/OL2748402A.json',
+            json={
+                'key': '/authors/OL2748402A',
+                'name': 'Frederick Faust',
+                'personal_name': 'Frederick Schiller Faust',
+                'alternate_names': ['Max Brand', 'George Owen Baxter'],
+                'birth_date': '29 May 1892',
+                'death_date': '12 May 1944'
+            }
+        )
+
         # Mock the OLID search (which will fail)
         requests_mock.get(
             'https://openlibrary.org/search.json?author=OL10356294A&title=The+Mustang+Herder&limit=2',
@@ -896,6 +909,21 @@ class TestPenNameBookEntry:
         requests_mock.get(
             'https://openlibrary.org/search.json?author=Max+Brand&title=The+Mustang+Herder&limit=2',
             json=mock_work_response
+        )
+
+        # Add mock for title-only search
+        requests_mock.get(
+            'https://openlibrary.org/search.json?title=The+Mustang+Herder&limit=2',
+            json={
+                'num_found': 1,
+                'docs': [{
+                    'key': '/works/OL123W',
+                    'title': 'The Mustang Herder',
+                    'author_name': ['Frederick Faust'],
+                    'author_key': ['OL2748402A'],
+                    'first_publish_year': 1923
+                }]
+            }
         )
 
         # Start author search and selection
